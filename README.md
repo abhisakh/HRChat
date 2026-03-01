@@ -72,3 +72,118 @@ integrated stack ensures HRChat is scalable, secure, and capable of delivering p
 communication between employees and HR teams.
 
 ---
+
+## 1. Backend Endpoints
+
+### 1.1 User Authentication
+
+| Endpoint                 | Method  | Description                                           | Request Body / Params                                   | Response                                              |
+|--------------------------|---------|-------------------------------------------------------|---------------------------------------------------------|--------------------------------------------------------|
+| `/api/register`          | POST    | Register a new user (employee or HR)                  | `{ "username": "john_doe", "password": "pass123", "role": "employee" }` | Success message / error                                |
+| `/api/login`             | POST    | Authenticate user and generate token                  | `{ "username": "john_doe", "password": "pass123" }`    | `{ "token": "JWT_TOKEN" }`                               |
+| `/api/logout`            | POST    | Invalidate user session / token (if using token blacklist) | Authorization: Bearer JWT token                        | Success / error                                        |
+
+### 1.2 User Management
+
+| Endpoint                | Method | Description                          | Request Body / Params                  | Response                                |
+|-------------------------|--------|--------------------------------------|----------------------------------------|-----------------------------------------|
+| `/api/users`           | GET    | Fetch list of users (admin only)     | Authorization header (JWT)             | List of user profiles                   |
+| `/api/users/{id}`      | GET    | Get user details                     | Path param: user ID                    | User profile                            |
+
+### 1.3 Chat Functionality
+
+| Endpoint                   | Method | Description                                | Request Body / Params                          | Response                                   |
+|----------------------------|--------|--------------------------------------------|------------------------------------------------|--------------------------------------------|
+| `/api/chats`               | GET    | Retrieve chat history between users        | Query params: `userId1`, `userId2`            | List of chat messages                      |
+| `/api/chats`               | POST   | Send a message                              | `{ "senderId": ..., "receiverId": ..., "message": "Hello" }` | Confirmation / new message object          |
+| `/api/chats/{chatId}`      | GET    | Fetch specific chat thread                  | Path param: chat ID                            | Chat history details                      |
+
+### 1.4 Additional Features
+
+| Endpoint                     | Method | Description                                                    | Request / Params                     | Response                        |
+|------------------------------|--------|----------------------------------------------------------------|-------------------------------------|---------------------------------|
+| `/api/notifications`        | GET    | Fetch notifications for the user                                | Authorization header (JWT)          | List of notifications           |
+
+---
+
+## 2. Database Schema Design
+
+### 2.1 Users Table
+
+| Column          | Type             | Constraints                          | Description                                     |
+|-----------------|------------------|-------------------------------------|-------------------------------------------------|
+| `id`          | UUID / SERIAL   | PRIMARY KEY                         | Unique user identifier                         |
+| `username`    | VARCHAR(50)     | UNIQUE, NOT NULL                     | User login name                                |
+| `password_hash` | VARCHAR(255)   | NOT NULL                            | Hashed password (bcrypt/scrypt)                |
+| `role`        | ENUM('employee', 'HR', 'admin') | NOT NULL        | Defines user permissions                       |
+| `created_at`  | TIMESTAMP       | DEFAULT CURRENT_TIMESTAMP           | Account creation timestamp                     |
+| `updated_at`  | TIMESTAMP       | DEFAULT CURRENT_TIMESTAMP ON UPDATE | Last update timestamp                         |
+
+**Reasoning:**  
+- Using UUIDs or SERIAL for unique IDs ensures scalability and uniqueness.  
+- Password hashes store securely using bcrypt or similar algorithms.  
+- Role field manages access levels.  
+
+---
+
+### 2.2 Password Storage
+
+- **Hashing Algorithm:** bcrypt (or scrypt/Argon2)  
+- **Reasoning:** Bcrypt is industry-standard for secure password storage, resistant to brute-force attacks.  
+- **Implementation:** When users register or change passwords, hash the plaintext password before storing.
+
+---
+
+### 2.3 Chat History Table
+
+| Column          | Type            | Constraints                          | Description                                  |
+|-----------------|-----------------|-------------------------------------|----------------------------------------------|
+| `id`          | UUID / SERIAL  | PRIMARY KEY                        | Unique chat message ID                       |
+| `sender_id`    | UUID / SERIAL  | FOREIGN KEY -> Users(id)           | Sender user ID                               |
+| `receiver_id`  | UUID / SERIAL  | FOREIGN KEY -> Users(id)           | Receiver user ID                             |
+| `message`      | TEXT           | NOT NULL                           | Text content of message                      |
+| `timestamp`    | TIMESTAMP      | DEFAULT CURRENT_TIMESTAMP          | When message was sent                        |
+| `chat_id`      | UUID / SERIAL  | (Optional) if grouping messages    | To group messages in a thread               |
+
+**Reasoning:**  
+- Storing sender and receiver IDs allows for efficient retrieval of conversation histories.  
+- Timestamps enable chronological ordering.  
+- Optional `chat_id` can be used for multi-message threads.
+
+---
+
+### 2.4 Chat Indexing
+
+- Index on `(sender_id, receiver_id, timestamp)` for efficient retrieval of conversation history.  
+- Consider composite indexes for common query patterns.
+
+---
+
+## 3. Rationale Behind Design Choices
+
+### Security
+- **Password Storage:** bcrypt hashing with salting to prevent password leaks.
+- **JWT Tokens:** stateless authentication for scalability; tokens include user roles and expiration.
+- **Secure Endpoints:** protected by middleware that verifies tokens and user permissions.
+
+### Scalability & Performance
+- Use of UUIDs for unique identifiers supports horizontal scaling.
+- Indexes on frequently queried fields (user IDs, timestamps) optimize performance.
+- RESTful endpoints facilitate clear separation of concerns and ease of integration.
+
+### Flexibility
+- Role-based access control via `role` field.
+- Chat history stored with sender/receiver IDs for flexible retrieval.
+- Modular API endpoints support future features (notifications, group chats).
+
+---
+
+## Summary
+
+This design provides a secure, scalable, and maintainable foundation for HRChat:
+
+- **Endpoints** facilitate registration, login, messaging, and user management.
+- **Database schema** ensures data integrity, security (password hashing), and efficient querying.
+- **Design choices** prioritize security, scalability, and flexibility for future feature expansion.
+
+Let me know if you'd like further details or sample implementations!
