@@ -1,4 +1,4 @@
-# HRChat_LLM (Fine Tuning)
+# HRChat_LLM (Context Aware Chat + Fine Tuning)
 ## Introduction
 
 In today’s dynamic and competitive business environment, effective human resource management is crucial for organizational success. 
