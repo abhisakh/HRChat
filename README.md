@@ -21,8 +21,6 @@ when a user submits a query via the chat interface, triggering the NLP module to
 fetches or modifies data as needed and formulates a response, which is delivered back to the user through the interface. This 
 architecture ensures a responsive, secure, and intelligent HR chatbot that streamlines HR interactions and improves employee engagement.
 
-Certainly! Here's a detailed overview of the necessary tech stack and a design paragraph for HRChat, separated into frontend, backend, database, LLM, and finetuning components:
-
 ---
 
 ## **Tech Stack for HRChat**
