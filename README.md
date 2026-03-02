@@ -185,3 +185,65 @@ This design provides a secure, scalable, and maintainable foundation for HRChat:
 - **Design choices** prioritize security, scalability, and flexibility for future feature expansion.
 
 Let me know if you'd like further details or sample implementations!
+
+---
+
+## Planned File and Folder Architecture
+```
+HRChat/
+│
+├── README.md
+├── .gitignore
+├── package.json            # For JavaScript/Node.js projects
+├── yarn.lock or package-lock.json
+│
+├── src/                    # Source files
+│   ├── components/         # Reusable UI components
+│   │   ├── ChatWindow/
+│   │   │   ├── ChatWindow.jsx
+│   │   │   └── ChatWindow.css
+│   │   ├── Message/
+│   │   │   ├── Message.jsx
+│   │   │   └── Message.css
+│   │   └── ...               # Other components
+│   │
+│   ├── pages/              # Page components
+│   │   ├── HomePage.jsx
+│   │   ├── LoginPage.jsx
+│   │   └── ...               # Other pages
+│   │
+│   ├── services/           # API calls and business logic
+│   │   └── api.js
+│   │
+│   ├── utils/              # Utility functions
+│   │   └── helpers.js
+│   │
+│   ├── assets/             # Images, fonts, etc.
+│   │   └── ...
+│   │
+│   ├── App.jsx             # Main app component
+│   ├── index.jsx           # Entry point
+│   └── styles.css          # Global styles
+│
+├── public/                 # Static assets
+│   ├── index.html
+│   └── favicon.ico
+│
+├── backend/                # Backend server (if applicable)
+│   ├── controllers/
+│   ├── models/
+│   ├── routes/
+│   ├── config/
+│   ├── app.js or server.js
+│   └── package.json
+│
+├── config/                 # Configuration files
+│   └── env.sample
+│
+├── tests/                  # Test files
+│   ├── unit/
+│   └── integration/
+│
+└── docker-compose.yml      # Docker configuration (if used)
+
+```
