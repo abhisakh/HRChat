@@ -247,3 +247,34 @@ HRChat/
 └── docker-compose.yml      # Docker configuration (if used)
 
 ```
+
+```
+HRChat/
+├── backend/                # FastAPI + LangGraph "Brain"
+│   ├── app/
+│   │   ├── api/            # FastAPI routes (chat, health, auth)
+│   │   ├── core/           # Config (env vars, constants)
+│   │   ├── agent/          # THE CORE: LangGraph Logic
+│   │   │   ├── graph.py    # StateGraph definition (nodes & edges)
+│   │   │   ├── state.py    # Type definitions for the graph state
+│   │   │   ├── nodes/      # Functions for each step (retrieve, grade, generate)
+│   │   │   └── tools/      # HRIS APIs, calculator tools, etc.
+│   │   └── db/             # Vector store (Pinecone) & SQL (Persistence)
+│   ├── main.py             # Entry point for Uvicorn
+│   └── requirements.txt
+│
+├── frontend/               # Next.js 15+ / React "Face"
+│   ├── app/                # App Router (Layouts, Pages)
+│   ├── components/         # Shadcn/UI + Chat components
+│   │   ├── chat/           # ChatWindow, MessageBubble
+│   │   └── ui/             # Buttons, Inputs, Cards
+│   ├── hooks/              # useChat, useLangGraphStreaming
+│   └── lib/                # API client (Axios/Fetch)
+│
+├── data/                   # Ingestion & Processing
+│   ├── raw/                # Original HR PDFs/Docs
+│   └── scripts/            # Python scripts to chunk & upload to Vector DB
+│
+├── docker-compose.yml      # Spin up Backend, Frontend, and Postgres
+└── .env                    # Keys for OpenAI, Pinecone, etc.
+```
