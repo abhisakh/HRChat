@@ -261,7 +261,7 @@ HRChat/
 │   │   │   └── tools/      # HRIS APIs, calculator tools, etc.
 │   │   └── db/             # Vector store (Pinecone) & SQL (Persistence)
 │   ├── main.py             # Entry point for Uvicorn
-│   └── requirements.txt
+│  
 │
 ├── frontend/               # Next.js 15+ / React "Face"
 │   ├── app/                # App Router (Layouts, Pages)
@@ -276,5 +276,6 @@ HRChat/
 │   └── scripts/            # Python scripts to chunk & upload to Vector DB
 │
 ├── docker-compose.yml      # Spin up Backend, Frontend, and Postgres
+└── requirements.txt
 └── .env                    # Keys for OpenAI, Pinecone, etc.
 ```
