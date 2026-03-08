@@ -257,7 +257,7 @@ HRChat/
 │   │   ├── agent/          # THE CORE: LangGraph Logic
 │   │   │   ├── graph.py    # StateGraph definition (nodes & edges)
 │   │   │   ├── state.py    # Type definitions for the graph state
-│   │   │   ├── nodes/      # Functions for each step (retrieve, grade, generate)
+│   │   │   ├── nodes.py    # Functions for each step (retrieve, grade, generate)
 │   │   │   └── tools/      # HRIS APIs, calculator tools, etc.
 │   │   │       ├── retriever.py
 │   │   │       └── sql_tool.py   <-- NEW: Helper to query SQLite
