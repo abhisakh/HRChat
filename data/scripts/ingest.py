@@ -1,4 +1,6 @@
 import os
+import json
+import hashlib
 from pathlib import Path
 from dotenv import load_dotenv
 from pypdf import PdfReader
@@ -8,68 +10,92 @@ from pinecone import Pinecone, ServerlessSpec
 
 load_dotenv()
 
-# --- Path Configuration using Python's Pathlib ---
+# --- Path Configuration ---
 SCRIPT_DIR = Path(__file__).resolve().parent
 DATA_RAW_DIR = SCRIPT_DIR.parent / "raw"
+MANIFEST_FILE = SCRIPT_DIR / "ingest_manifest.json"
 
-# --- 1. The Processing Function (The "Workhorse") ---
-def process_pdf_to_pinecone(file_path, index):
-    """Handles the extraction, embedding, and uploading of a single PDF."""
-    print(f"Reading {file_path.name}...")
+def get_file_hash(file_path):
+    """Generate a hash to see if the file content changed."""
+    hasher = hashlib.md5()
+    with open(file_path, 'rb') as f:
+        hasher.update(f.read())
+    return hasher.hexdigest()
+
+def load_manifest():
+    if MANIFEST_FILE.exists():
+        with open(MANIFEST_FILE, 'r') as f:
+            return json.load(f)
+    return {}
+
+def save_manifest(manifest):
+    with open(MANIFEST_FILE, 'w') as f:
+        json.dump(manifest, f, indent=4)
+
+def process_pdf(file_path):
+    """Extracts text and splits into chunks."""
     reader = PdfReader(file_path)
     text = "".join([page.extract_text() for page in reader.pages if page.extract_text()])
 
-    if not text.strip():
-        print(f"⚠️ Warning: Could not extract text from {file_path.name}. Skipping.")
-        return
+    splitter = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=100)
+    return splitter.split_text(text)
 
-    splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=100)
-    chunks = splitter.split_text(text)
-
-    embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
-
-    print(f"Uploading {len(chunks)} chunks from {file_path.name}...")
-    for i, chunk in enumerate(chunks):
-        # Create a unique ID combining filename and index
-        unique_id = f"{file_path.stem}_{i}"
-        vec = embeddings.embed_query(chunk)
-        index.upsert(vectors=[{
-            "id": unique_id,
-            "values": vec,
-            "metadata": {"text": chunk, "source": str(file_path.name)}
-        }])
-
-# --- 2. The Orchestrator Function (The "Manager") ---
-def run_bulk_ingestion():
-    """Finds all PDFs in data/raw and triggers the process."""
+def run_smart_ingestion():
+    # 1. Setup Pinecone & Manifest
     pc = Pinecone(api_key=os.getenv("PINECONE_API_KEY"))
     index_name = os.getenv("PINECONE_INDEX_NAME")
+    manifest = load_manifest()
 
-    # Create Index if needed (Free Tier Specs)
+    # Create index if it's your first time
     if index_name not in [idx.name for idx in pc.list_indexes()]:
-        print(f"Creating FREE index: {index_name}")
-        pc.create_index(
-            name=index_name,
-            dimension=1536,
-            metric="cosine",
-            spec=ServerlessSpec(cloud="aws", region="us-east-1")
-        )
+        pc.create_index(name=index_name, dimension=1536, metric="cosine",
+                        spec=ServerlessSpec(cloud="aws", region="us-east-1"))
 
     index = pc.Index(index_name)
+    embeddings = OpenAIEmbeddings(model="text-embedding-3-small")
 
-    # Locate all PDFs using our Python-provided path
+    # 2. Scan for PDFs
     pdf_files = list(DATA_RAW_DIR.glob("*.pdf"))
-
     if not pdf_files:
-        print(f"❌ No PDFs found in {DATA_RAW_DIR}. Please add your policy files there.")
+        print("No PDFs found in data/raw.")
         return
 
-    print(f"📂 Found {len(pdf_files)} files. Starting ingestion...")
+    for pdf_path in pdf_files:
+        file_name = pdf_path.name
+        current_hash = get_file_hash(pdf_path)
 
-    for pdf in pdf_files:
-        process_pdf_to_pinecone(pdf, index)
+        # Check if we should skip
+        if manifest.get(file_name) == current_hash:
+            print(f"⏩ Skipping {file_name} (unchanged).")
+            continue
 
-    print("✅ All documents processed successfully!")
+        print(f"⚙️ Processing {file_name}...")
+        chunks = process_pdf(pdf_path)
+
+        vectors = []
+        for i, chunk in enumerate(chunks):
+            # Create a deterministic ID: filename_chunkIndex
+            chunk_id = f"{pdf_path.stem}_{i}"
+            vector_values = embeddings.embed_query(chunk)
+
+            vectors.append({
+                "id": chunk_id,
+                "values": vector_values,
+                "metadata": {"text": chunk, "source": file_name}
+            })
+
+            # Upsert in batches of 100
+            if len(vectors) == 100:
+                index.upsert(vectors=vectors)
+                vectors = []
+
+        if vectors:
+            index.upsert(vectors=vectors)
+
+        # Update manifest
+        manifest[file_name] = current_hash
+        save_manifest(manifest)
+        print(f"✅ Indexed {file_name}")
 
 if __name__ == "__main__":
-    run_bulk_ingestion()
+    run_smart_ingestion()
