@@ -12,3 +12,5 @@ class AgentState(TypedDict):
 
     # 'answer' stores the final generated response
     answer: str
+
+    source_used: str  # "SQL" or "Vector"
