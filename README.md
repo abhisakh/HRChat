@@ -252,22 +252,22 @@ HRChat/
 HRChat/
 ├── backend/                # FastAPI + LangGraph "Brain"
 │   ├── app/
-│       ├── api/            # FastAPI routes (chat, health, auth)
-│       ├── core/           # Config (env vars, constants)
-│       ├── agent/          # THE CORE: LangGraph Logic
-│       │   ├── graph.py    # StateGraph definition (nodes & edges)
-│       │   ├── state.py    # Type definitions for the graph state
-│       │   ├── nodes/      # Functions for each step (retrieve, grade, generate)
-│       │   └── tools/      # HRIS APIs, calculator tools, etc.
-│       │       ├── retriever.py
-│       │       └── sql_tool.py   <-- NEW: Helper to query SQLite
-│       ├── db
-│       │   ├── schemas           <-- NEW: Folder for .sql files
-│       │   │   ├── employees.sql  <-- Structured employee data
-│       │   │   └── audit_logs.sql <-- Chat history & metadata
-│       │   ├── connection.py     <-- NEW: DB session/init logic
-│       │   └── hr_database.db    <-- The actual SQLite file
-│       ├── main.py             # Entry point for Uvicorn
+│   │   ├── api/            # FastAPI routes (chat, health, auth)
+│   │   ├── core/           # Config (env vars, constants)
+│   │   ├── agent/          # THE CORE: LangGraph Logic
+│   │   │   ├── graph.py    # StateGraph definition (nodes & edges)
+│   │   │   ├── state.py    # Type definitions for the graph state
+│   │   │   ├── nodes/      # Functions for each step (retrieve, grade, generate)
+│   │   │   └── tools/      # HRIS APIs, calculator tools, etc.
+│   │   │       ├── retriever.py
+│   │   │       └── sql_tool.py   <-- NEW: Helper to query SQLite
+│   │   ├── db
+│   │       ├── schemas           <-- NEW: Folder for .sql files
+│   │       │   ├── employees.sql  <-- Structured employee data
+│   │       │   └── audit_logs.sql <-- Chat history & metadata
+│   │       ├── connection.py     <-- NEW: DB session/init logic
+│   │       └── hr_database.db    <-- The actual SQLite file
+│   ├── main.py             # Entry point for Uvicorn
 │
 │
 │  
