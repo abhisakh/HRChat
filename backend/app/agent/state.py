@@ -1,7 +1,14 @@
-from typing import TypedDict, List
+from typing import Annotated, Sequence, TypedDict
+from langchain_core.messages import BaseMessage
+from langgraph.graph.message import add_messages
 
 class AgentState(TypedDict):
-    question: str
-    context: List[str]  # Retrieved HR documents
+    # 'messages' will store the full chat history (User and AI messages)
+    # Annotated with add_messages so new messages are appended, not overwritten.
+    messages: Annotated[Sequence[BaseMessage], add_messages]
+
+    # 'context' will hold the snippets retrieved from Pinecone
+    context: list[str]
+
+    # 'answer' stores the final generated response
     answer: str
-    relevance_score: str # "yes" or "no" (graded by the LLM)
