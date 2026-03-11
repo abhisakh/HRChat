@@ -17,9 +17,9 @@
    - [User management](#user-management)
    - [Chat functionality](#chat-functionality)
    - [Additional feture](#additional-feature)
-- Database Schema Design(#database-design)
-  - - [User Table](#user-table)
-  - - [Password Storage](#password-storage)
+- [Database Schema Design](#database-design)
+   - [User Table](#user-table)
+   - [Password Storage](#password-storage)
 - [Architecture Overview](#architecture-overview)
 
 
