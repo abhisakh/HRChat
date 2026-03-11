@@ -288,3 +288,66 @@ HRChat/
 └── requirements.txt
 └── .env                    # Keys for OpenAI, Pinecone, etc.
 ```
+
+## Architectural Journey of the Backend
+
+Think of the Backend as a high-end restaurant:
+
+1. FastAPI (main.py): The Waiter (takes orders and gives answers).
+2. LangGraph (agent/): The Head Chef (decides how to cook the order).
+3. Tools (tools/): The Kitchen Appliances (SQL for facts, Vector for documents).
+4. Database (db/): The Pantry (where all ingredients are stored).
+
+### Module 1: The Foundation - The Database Layer (/db)
+Before the AI can think, it needs data. We use **SQLite** because it is a "file-based" database (everything is stored in hr_database.db), which is perfect for development.
+
+#### 1.1 The Schemas (/schemas)
+Instead of creating tables manually, we use .sql files. This is your "Blueprint."
+- employees.sql: Stores personal data (Salary, Supervisor).
+- auth.sql: Stores credentials (Usernames, Hashed Passwords).
+- chat_audit_logs.sql: Stores every question asked for security.
+
+#### 1.2 The Connector (connection.py)
+This file is the "Bridge." It contains the init_db() function, which reads those SQL blueprints and builds the actual database file. It also contains the save_to_audit_log() function, which acts as a "Black Box recorder" for the bot.
+
+---
+
+### Module 2: The Brain - The Agent Layer (/agent)
+This is where the "Intelligence" lives. We use LangGraph, which treats a conversation like a flowchart (a Graph).
+
+#### 2.1 State (state.py)
+In a standard script, variables disappear when the function ends. In an AI agent, we need a "Short-term Memory."
+- The AgentState is a Python dictionary that travels through the graph. It carries the messages (chat history) and the user_id.
+
+#### 2.2 Nodes (nodes.py)
+Nodes are the "Decision Stations."
+**Router Node:** Looks at the question. Is it about salary? (Go to SQL). Is it about policy? (Go to Vector).
+**Generate Node:** Takes the data found by the tools and writes a nice, human-sounding response.
+
+#### 2.3 The Graph (graph.py)
+This file connects the nodes together. It defines the flow:
+**Start -> Router -> Tools -> Generator -> End**
+- Memory Checkpoint: This is where SqliteSaver lives. It saves the state to checkpoints.sqlite so if the user comes back tomorrow, the "Chef" remembers what they ordered yesterday.
+
+---
+
+### Module 3: The Tools - Data Retrieval (/tools)
+The AI doesn't actually "know" about the employer's personal information(e.g., salary, supervisor  name etc.) or anything about the company policies. It has to look it up using these specialized tools.
+
+#### 3.1 SQL Tool (sql_tool.py)
+- This is for Structured Data.
+It takes a natural language question (e.g., "What is my pay?"), converts it into a SQL query (SELECT salary FROM employees...), and returns the number.
+
+#### 3.2 Retriever (retriever.py)
+- This is for Unstructured Data (The PDF).
+It uses Vector Search. We turned the required PDF document into thousands of tiny mathematical "embeddings." This tool finds the paragraphs that "mathematically match" the user's question about the dress code or PTO.
+
+---
+
+### Module 4: The Gateway - The API (main.py)
+This is the only part of the backend that "talks" to the outside world (the Frontend).
+- Login Endpoint: Verifies the username and returns the user_id.
+- Chat Endpoint: Receives a message, hands it to the LangGraph Agent, waits for the agent to finish "thinking," and sends the result back as JSON.
+
+---
+
