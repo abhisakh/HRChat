@@ -1,6 +1,43 @@
 # HRChat_LLM (Context Aware Chat + Fine Tuning)
-## Introduction
 
+---
+<a id="table"></a>
+## 📖 Table of Contents
+- [Introduction](#introduction)
+- [Architecture and Workflow of HRChat](#archi1)
+- [Tech Stack for HRChat](#tech-stack)
+ - - [Frontend](#frontend1)
+ - - [Backend](#backend1)
+ - - [Database](#database1)
+ - - [LLM](#llm1)
+ - - [Finetuning](#finetune1)
+- [Design Overview](#design-overview)
+  - [Backend enpoints](#backend-endpoints)
+  - -[User authentication](#user-authentication)
+  - -[User management](#user-management)
+  - -[Chat functionality](#chat-functionality)
+  - -[Additional feture](#additional-feature)
+- Database Schema Design(#database-design)
+  - -[User Table](#user-table)
+  - -[Password Storage](#password-storage)
+- [Architecture Overview](#architecture-overview)
+
+
+
+---
+
+# Introduction
+<a id ="bridging"></a>
+## 🧬 Bridging the Gap Between AI and Scientific Rigor
+<-- [Back](#table)
+
+
+
+
+
+<a id ="bridging"></a>
+## Introduction
+<-- [Back](#table)
 In today’s dynamic and competitive business environment, effective human resource management is crucial for organizational success. 
 The HRChat project aims to develop an intelligent, user-friendly chatbot that streamlines communication between employees and 
 HR departments. By leveraging advanced artificial intelligence and natural language processing technologies, HRChat facilitates 
@@ -8,8 +45,9 @@ quick access to HR-related information, simplifies common queries, and enhances 
 significant because it addresses the growing need for efficient, 24/7 accessible HR support, reduces administrative workload, 
 and improves response times. Ultimately, HRChat empowers organizations to foster a more responsive, transparent, and productive workplace culture.
 
+<a id ="archi1"></a>
 ## Architecture and Workflow of HRChat
-
+<-- [Back](#table)
 The HRChat system is designed with a modular, scalable architecture that integrates a front-end user interface, a backend server, 
 and multiple supporting services. The front end, typically a web or mobile application, facilitates user interactions such as 
 querying HR policies, submitting leave requests, or accessing employee information. The backend server, built using a robust 
@@ -22,32 +60,33 @@ fetches or modifies data as needed and formulates a response, which is delivered
 architecture ensures a responsive, secure, and intelligent HR chatbot that streamlines HR interactions and improves employee engagement.
 
 ---
-
+<a id ="tech-stack"></a>
 ## **Tech Stack for HRChat**
-
+<-- [Back](#table)
+<a id ="frontend1"></a>
 **Frontend:**
 - **Framework:** React.js or Vue.js for building an interactive and responsive user interface.
 - **Styling:** CSS3, Sass, or Tailwind CSS for modern styling.
 - **State Management:** Redux or Vuex to manage application state efficiently.
 - **Communication:** Axios or Fetch API for API calls.
 - **Deployment:** Hosted on platforms like Netlify, Vercel, or cloud services such as AWS Amplify.
-
+<a id ="backend1"></a>
 **Backend:**
 - **Framework:** Node.js with Express.js or Python with FastAPI for handling API requests.
 - **Authentication:** JWT (JSON Web Tokens) or OAuth2 for secure user authentication.
 - **API Layer:** RESTful APIs or GraphQL to enable flexible data retrieval.
 - **Hosting:** Cloud services like AWS, Azure, or Google Cloud Platform.
-
+<a id ="database1"></a>
 **Database:**
 - **Type:** NoSQL (MongoDB) or SQL (PostgreSQL/MySQL) depending on data complexity.
 - **Purpose:** Store user profiles, chat histories, and configuration settings.
 - **Hosting:** Managed database services like MongoDB Atlas, AWS RDS, or Azure SQL.
-
+<a id ="llm1"></a>
 **Large Language Model (LLM):**
 - **Model:** OpenAI GPT-4, GPT-3.5, or other suitable LLMs for natural language understanding and generation.
 - **Access:** Via API calls to OpenAI or similar providers.
 - **Hosting:** Cloud-based API access; local hosting if using open-source models like LLaMA or GPT-J.
-
+<a id ="finetune1"></a>
 **Finetuning:**
 - **Data Preparation:** Curate HR-specific datasets, including common interview questions, policy documents, and organizational knowledge.
 - **Training:** Use frameworks like OpenAI’s fine-tuning API, Hugging Face Transformers, or OpenLLM to adapt the base LLM.
@@ -55,9 +94,9 @@ architecture ensures a responsive, secure, and intelligent HR chatbot that strea
 - **Monitoring:** Track model performance and periodically update finetuning data as needed.
 
 ---
-
+<a id ="design-overview"></a>
 **Design Paragraph for HRChat**
-
+<-- [Back](#table)
 HRChat is designed as an intelligent, user-friendly chatbot tailored for human resource interactions. The frontend 
 employs modern JavaScript frameworks such as React.js or Vue.js to deliver a seamless, responsive user experience, 
 allowing users to interact effortlessly across devices. The backend, built with Node.js and Express.js or Python’s 
@@ -70,9 +109,10 @@ integrated stack ensures HRChat is scalable, secure, and capable of delivering p
 communication between employees and HR teams.
 
 ---
-
+<a id ="backend-endpoints"></a>
 ## 1. Backend Endpoints
-
+<-- [Back](#table)
+<a id ="user-authentication"></a>
 ### 1.1 User Authentication
 
 | Endpoint                 | Method  | Description                                           | Request Body / Params                                   | Response                                              |
@@ -80,14 +120,14 @@ communication between employees and HR teams.
 | `/api/register`          | POST    | Register a new user (employee or HR)                  | `{ "username": "john_doe", "password": "pass123", "role": "employee" }` | Success message / error                                |
 | `/api/login`             | POST    | Authenticate user and generate token                  | `{ "username": "john_doe", "password": "pass123" }`    | `{ "token": "JWT_TOKEN" }`                               |
 | `/api/logout`            | POST    | Invalidate user session / token (if using token blacklist) | Authorization: Bearer JWT token                        | Success / error                                        |
-
+<a id ="user-management"></a>
 ### 1.2 User Management
 
 | Endpoint                | Method | Description                          | Request Body / Params                  | Response                                |
 |-------------------------|--------|--------------------------------------|----------------------------------------|-----------------------------------------|
 | `/api/users`           | GET    | Fetch list of users (admin only)     | Authorization header (JWT)             | List of user profiles                   |
 | `/api/users/{id}`      | GET    | Get user details                     | Path param: user ID                    | User profile                            |
-
+<a id ="chat-functionality"></a>
 ### 1.3 Chat Functionality
 
 | Endpoint                   | Method | Description                                | Request Body / Params                          | Response                                   |
@@ -95,7 +135,7 @@ communication between employees and HR teams.
 | `/api/chats`               | GET    | Retrieve chat history between users        | Query params: `userId1`, `userId2`            | List of chat messages                      |
 | `/api/chats`               | POST   | Send a message                              | `{ "senderId": ..., "receiverId": ..., "message": "Hello" }` | Confirmation / new message object          |
 | `/api/chats/{chatId}`      | GET    | Fetch specific chat thread                  | Path param: chat ID                            | Chat history details                      |
-
+<a id ="additional-feature"></a>
 ### 1.4 Additional Features
 
 | Endpoint                     | Method | Description                                                    | Request / Params                     | Response                        |
@@ -103,9 +143,9 @@ communication between employees and HR teams.
 | `/api/notifications`        | GET    | Fetch notifications for the user                                | Authorization header (JWT)          | List of notifications           |
 
 ---
-
+<a id ="database-design"></a>
 ## 2. Database Schema Design
-
+<a id ="user-table"></a>
 ### 2.1 Users Table
 
 | Column          | Type             | Constraints                          | Description                                     |
@@ -123,7 +163,7 @@ communication between employees and HR teams.
 - Role field manages access levels.  
 
 ---
-
+<a id ="password-storage"></a>
 ### 2.2 Password Storage
 
 - **Hashing Algorithm:** bcrypt (or scrypt/Argon2)  
