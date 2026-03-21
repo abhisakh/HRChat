@@ -320,9 +320,12 @@ HRChat/
 │   ├── hooks/              # useChat, useLangGraphStreaming
 │   └── lib/                # API client (Axios/Fetch)
 │
-├── data/                   # Ingestion & Processing
-│   ├── raw/                # Original HR PDFs/Docs
-│   └── scripts/            # Python scripts to chunk & upload to Vector DB
+├── data/                  
+│   └── raw/
+│   │   └── umbrella_corp_policies.pdf       # Original company policy PDFs/Docs
+│   └── scripts/            
+│         ├── ingest.py                      # Python scripts to chunk & upload to Vector DB
+│        └── seed_employees.py              # Python scripts to create random emplyees and their username + password
 │
 ├── docker-compose.yml      # Spin up Backend, Frontend, and Postgres
 └── requirements.txt
