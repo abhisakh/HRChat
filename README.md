@@ -321,7 +321,7 @@ HRChat/
 │   └── lib/                # API client (Axios/Fetch)
 │
 ├── data/                  
-│   └── raw/
+│   ├── raw/
 │   │   └── umbrella_corp_policies.pdf       # Original company policy PDFs/Docs
 │   └── scripts/            
 │         ├── ingest.py                      # Python scripts to chunk & upload to Vector DB
