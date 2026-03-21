@@ -305,6 +305,7 @@ HRChat/
 │   │       ├── schemas           <-- NEW: Folder for .sql files
 │   │       │   ├── employees.sql  <-- Structured employee data
 │   │       │   └── audit_logs.sql <-- Chat history & metadata
+│   │       │          └── auth.sql <-- authentication details
 │   │       ├── connection.py     <-- NEW: DB session/init logic
 │   │       └── hr_database.db    <-- The actual SQLite file
 │   ├── main.py             # Entry point for Uvicorn
