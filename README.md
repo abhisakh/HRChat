@@ -229,64 +229,6 @@ Let me know if you'd like further details or sample implementations!
 ---
 
 ## Planned File and Folder Architecture
-```
-HRChat/
-│
-├── README.md
-├── .gitignore
-├── package.json            # For JavaScript/Node.js projects
-├── yarn.lock or package-lock.json
-│
-├── src/                    # Source files
-│   ├── components/         # Reusable UI components
-│   │   ├── ChatWindow/
-│   │   │   ├── ChatWindow.jsx
-│   │   │   └── ChatWindow.css
-│   │   ├── Message/
-│   │   │   ├── Message.jsx
-│   │   │   └── Message.css
-│   │   └── ...               # Other components
-│   │
-│   ├── pages/              # Page components
-│   │   ├── HomePage.jsx
-│   │   ├── LoginPage.jsx
-│   │   └── ...               # Other pages
-│   │
-│   ├── services/           # API calls and business logic
-│   │   └── api.js
-│   │
-│   ├── utils/              # Utility functions
-│   │   └── helpers.js
-│   │
-│   ├── assets/             # Images, fonts, etc.
-│   │   └── ...
-│   │
-│   ├── App.jsx             # Main app component
-│   ├── index.jsx           # Entry point
-│   └── styles.css          # Global styles
-│
-├── public/                 # Static assets
-│   ├── index.html
-│   └── favicon.ico
-│
-├── backend/                # Backend server (if applicable)
-│   ├── controllers/
-│   ├── models/
-│   ├── routes/
-│   ├── config/
-│   ├── app.js or server.js
-│   └── package.json
-│
-├── config/                 # Configuration files
-│   └── env.sample
-│
-├── tests/                  # Test files
-│   ├── unit/
-│   └── integration/
-│
-└── docker-compose.yml      # Docker configuration (if used)
-
-```
 
 ```
 HRChat/
@@ -392,6 +334,393 @@ It uses Vector Search. We turned the required PDF document into thousands of tin
 This is the only part of the backend that "talks" to the outside world (the Frontend).
 - Login Endpoint: Verifies the username and returns the user_id.
 - Chat Endpoint: Receives a message, hands it to the LangGraph Agent, waits for the agent to finish "thinking," and sends the result back as JSON.
+
+---
+
+
+# 🧠 HRChat System Architecture (With Role-Based Access Control)
+
+This document explains the full flow of the HRChat system—from frontend request to backend processing, AI agent orchestration, and secure database access using Role-Based Access Control (RBAC).
+
+---
+
+# 🚀 1. High-Level Architecture
+
+```
+Frontend (UI)
+   ↓
+FastAPI Backend (main.py)
+   ↓
+LangGraph Agent (graph.py)
+   ↓
+Nodes (nodes.py)
+   ↓
+SQL Tool / Retriever
+   ↓
+SQLite Database
+```
+
+---
+
+# 🔄 2. End-to-End Flow
+
+## Step 1: User Interaction (Frontend)
+
+The user:
+
+* Logs in via `/login`
+* Sends a message via `/chat`
+
+Example:
+
+```json
+{
+  "user_id": "user_101",
+  "message": "How many vacation days do I have?"
+}
+```
+
+---
+
+## Step 2: FastAPI Backend (`main.py`)
+
+### Responsibilities:
+
+* Authentication
+* Request validation
+* Role retrieval
+* Passing context to the agent
+
+---
+
+### 🔐 Login Flow
+
+**File:** `main.py`
+
+```python
+verify_user(username, password)
+```
+
+* Checks credentials from `users` table
+* Returns:
+
+  * `user_id`
+  * `role` (employee / hr / admin)
+
+---
+
+### 💬 Chat Flow
+
+```python
+chat_endpoint()
+```
+
+Steps:
+
+1. Receives `user_id` and message
+2. Fetches role using:
+
+   ```python
+   get_user_role(user_id)
+   ```
+3. Passes both into agent:
+
+```python
+config = {
+    "configurable": {
+        "thread_id": user_id,
+        "role": user_role
+    }
+}
+```
+
+---
+
+# 🧠 3. Agent Layer (LangGraph)
+
+**File:** `graph.py`
+
+### Responsibilities:
+
+* Define execution flow
+* Connect nodes
+
+---
+
+### Flow:
+
+```
+router_node → (sql_node OR retrieve_node) → generate_node → audit_node
+```
+
+---
+
+# 🔀 4. Routing Logic
+
+**File:** `nodes.py`
+
+```python
+router_node()
+```
+
+### Purpose:
+
+Decides whether the query should go to:
+
+* SQL database (personal data)
+* Vector DB (HR policies)
+
+---
+
+# 📊 5. Data Retrieval Nodes
+
+## 🧾 SQL Node
+
+```python
+sql_node(state, config)
+```
+
+### Responsibilities:
+
+* Extract:
+
+  * `user_id`
+  * `role`
+* Pass both into SQL tool
+
+```python
+query_employee_db(user_id, role, question)
+```
+
+---
+
+## 📄 Vector Node
+
+```python
+retrieve_node()
+```
+
+### Responsibilities:
+
+* Fetch HR policies from vector database (Pinecone)
+
+---
+
+# 🔐 6. Role-Based Access Control (RBAC)
+
+## 📌 Core Principle
+
+> Roles are enforced at the **data access layer**, not in the UI or LLM.
+
+---
+
+## 🗄 Database Design
+
+### `employees` table
+
+Stores:
+
+* HR-related data (salary, PTO, department)
+
+### `users` table
+
+Stores:
+
+* authentication data
+* role
+
+```sql
+role TEXT NOT NULL DEFAULT 'employee'
+CHECK(role IN ('employee', 'hr', 'admin'))
+```
+
+---
+
+## ⚙️ RBAC Enforcement
+
+**File:** `sql_tool.py`
+
+```python
+query_employee_db(user_id, role, question)
+```
+
+---
+
+### 👤 Employee Access
+
+* Can only access their own record
+* Cannot see salary
+
+```sql
+SELECT ... FROM employees WHERE user_id = ?
+```
+
+---
+
+### 👨‍💼 HR Access
+
+* Can access all employees
+
+```sql
+SELECT * FROM employees
+```
+
+---
+
+### 🛠 Admin Access
+
+* Full access (same as HR for now)
+* Can delete users via API
+
+---
+
+### ❌ Unauthorized Access
+
+Returns:
+
+```
+Access denied
+```
+
+---
+
+# 🧠 7. Response Generation
+
+**File:** `nodes.py`
+
+```python
+generate_node()
+```
+
+### Responsibilities:
+
+* Combine context (SQL or vector)
+* Generate final answer using LLM
+
+---
+
+# 🧾 8. Audit Logging
+
+**File:** `nodes.py`
+
+```python
+audit_node()
+```
+
+### Responsibilities:
+
+* Save:
+
+  * user_id
+  * question
+  * answer
+  * data source
+
+**Stored in:**
+`chat_audit_logs` table
+
+---
+
+# 👤 9. User Registration Flow
+
+**File:** `main.py`
+
+```python
+/register
+```
+
+### Steps:
+
+1. Create employee record
+2. Create user record
+3. Assign role internally
+
+```python
+if "hr" in position:
+    role = "hr"
+else:
+    role = "employee"
+```
+
+---
+
+### 🔒 Security Rule
+
+> Users cannot choose their role.
+
+---
+
+# 🛠 10. Admin Operations
+
+## Delete User
+
+```python
+/delete_user
+```
+
+### Restrictions:
+
+* Only accessible by `admin`
+
+---
+
+# 📂 11. File Responsibilities
+
+| File            | Responsibility                                   |
+| --------------- | ------------------------------------------------ |
+| `main.py`       | API layer, auth, routing, RBAC entry point       |
+| `graph.py`      | Defines agent workflow                           |
+| `nodes.py`      | Handles logic per step (router, SQL, generation) |
+| `sql_tool.py`   | 🔐 Enforces RBAC and queries DB                  |
+| `connection.py` | DB initialization and logging                    |
+| `employees.sql` | Employee schema                                  |
+| `auth.sql`      | Users + roles schema                             |
+
+---
+
+# 🔐 12. Security Design Summary
+
+| Layer           | Responsibility                  |
+| --------------- | ------------------------------- |
+| Frontend        | UI only (no security)           |
+| API (`main.py`) | Authentication + role injection |
+| Nodes           | Pass role context               |
+| SQL Tool        | ✅ Enforces RBAC                 |
+| DB              | Constraint validation           |
+
+---
+
+# ⚠️ 13. Current Limitations
+
+* `user_id` can still be spoofed (no JWT yet)
+* SQL queries are static (not fully dynamic)
+* HR/Admin have same access level
+
+---
+
+# 🚀 14. Future Improvements
+
+* 🔐 JWT Authentication (remove user_id from requests)
+* 🧠 Smart query parsing (LLM-assisted filtering)
+* 👨‍💼 Manager-level RBAC (department-based access)
+* 📊 Column-level security (e.g., salary restrictions)
+
+---
+
+# 🎯 Final Summary
+
+This system implements:
+
+* ✅ Multi-user authentication
+* ✅ Role-Based Access Control (RBAC)
+* ✅ Hybrid AI (SQL + Vector search)
+* ✅ Secure data access layer
+* ✅ Audit logging
+
+---
+
+> 🔥 Key Insight:
+> RBAC is enforced in `sql_tool.py`, making it the most critical security component in the system.
 
 ---
 
