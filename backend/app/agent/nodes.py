@@ -29,13 +29,27 @@ class RouteQuery(BaseModel):
         description="Choose 'sql' for personal data like PTO, salary, or employee records. Choose 'vector' for general HR policies, handbooks, and dress codes."
     )
 
-def router_node(state: AgentState):
+def router_node(state: AgentState, config: RunnableConfig):
     """Analyzes the question to decide between SQL and Vector."""
     print("--- NODE: ROUTER ---")
-    structured_llm = llm.with_structured_output(RouteQuery)
+
+    user_role = config["configurable"].get("role", "employee")
     user_question = state["messages"][-1].content
 
-    route = structured_llm.invoke(f"Analyze this HR question: {user_question}")
+    structured_llm = llm.with_structured_output(RouteQuery)
+
+    route = structured_llm.invoke(
+        f"""
+        User role: {user_role}
+
+        Decide:
+        - Use 'sql' for personal/employee data
+        - Use 'vector' for general HR policy
+
+        Question: {user_question}
+        """
+    )
+
     return {"source_used": route.datasource}
 
 # --- DATA NODES ---
@@ -50,23 +64,38 @@ def retrieve_node(state: AgentState):
 def sql_node(state: AgentState, config: RunnableConfig):
     """Fetches structured personal data from SQLite."""
     print("--- NODE: SQL SEARCH ---")
-    # We pull the thread_id (user_id) directly from the config
+
     user_id = config["configurable"].get("thread_id", "unknown_user")
+    user_role = config["configurable"].get("role", "employee")
     user_question = state["messages"][-1].content
 
-    # We use our tool to query the employee table
-    result = query_employee_db(user_id, user_question)
+    # 🔐 Pass role into SQL tool
+    result = query_employee_db(user_id, user_role, user_question)
+
     return {"context": [result]}
 
 # --- GENERATION NODE ---
-def generate_node(state: AgentState):
+def generate_node(state: AgentState, config: RunnableConfig):
     """Generates the final response based on the gathered context."""
     print("--- NODE: GENERATE ---")
+
+    user_role = config["configurable"].get("role", "employee")
     formatted_context = "\n\n".join(state["context"])
 
-    system_prompt = f"""You are a professional HR Assistant.
-    Use the retrieved context to answer. If the context is from a database, treat it as fact.
-    CONTEXT: {formatted_context}"""
+    system_prompt = f"""
+    You are a professional HR Assistant.
+
+    The user role is: {user_role}
+
+    If the user asks for restricted information:
+    - Politely refuse
+    - Do not fabricate data
+
+    Use the retrieved context to answer.
+
+    CONTEXT:
+    {formatted_context}
+    """
 
     messages = [SystemMessage(content=system_prompt)] + state["messages"]
     response = llm.invoke(messages)
