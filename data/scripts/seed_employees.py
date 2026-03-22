@@ -50,6 +50,7 @@ import sys
 from faker import Faker
 from datetime import datetime, timedelta
 from pathlib import Path
+#from backend.app.db.connection import init_db, DB_PATH
 
 # --- NEW: Fix pathing to import backend modules ---
 # This looks 3 levels up from data/scripts to the project root
