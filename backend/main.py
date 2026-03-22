@@ -66,30 +66,29 @@
 import uvicorn
 import sqlite3
 import hashlib
+import random
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from pathlib import Path
 
-# Import the graph and the DB initialization
 from backend.app.agent.graph import hr_agent
 from backend.app.db.connection import init_db
 from langchain_core.messages import HumanMessage
 
-# Path to your database
 DB_PATH = Path(__file__).parent / "app" / "db" / "hr_database.db"
 
 app = FastAPI(
     title="HRChat API",
-    description="Multi-user HR Assistant with Persistent Hybrid RAG",
-    version="1.2.0"
+    description="Multi-user HR Assistant with RBAC",
+    version="2.0.0"
 )
 
-# --- 1. Database Initialization on Startup ---
+# --- 1. Startup ---
 @app.on_event("startup")
 async def startup_event():
     init_db()
 
-# --- 2. Request/Response Models ---
+# --- 2. Models ---
 class LoginRequest(BaseModel):
     username: str
     password: str
@@ -103,55 +102,6 @@ class ChatResponse(BaseModel):
     answer: str
     source: str
 
-# --- 3. Authentication Helper ---
-def verify_user(username, password):
-    """Checks the database for matching username and hashed password."""
-    password_hash = hashlib.sha256(password.encode()).hexdigest()
-
-    conn = sqlite3.connect(DB_PATH)
-    cursor = conn.cursor()
-    cursor.execute(
-        "SELECT user_id FROM users WHERE username = ? AND password_hash = ?",
-        (username, password_hash)
-    )
-    result = cursor.fetchone()
-    conn.close()
-    return result[0] if result else None
-
-# --- 4. The Login Endpoint ---
-@app.post("/login")
-async def login(request: LoginRequest):
-    user_id = verify_user(request.username, request.password)
-    if not user_id:
-        raise HTTPException(status_code=401, detail="Invalid username or password")
-
-    # In the future, you'd return a JWT token here
-    return {"user_id": user_id, "status": "success"}
-
-# --- 5. The Chat Endpoint ---
-@app.post("/chat", response_model=ChatResponse)
-async def chat_endpoint(request: ChatRequest):
-    try:
-        config = {"configurable": {"thread_id": request.user_id}}
-        initial_state = {"messages": [HumanMessage(content=request.message)]}
-
-        final_state = hr_agent.invoke(initial_state, config=config)
-
-        return ChatResponse(
-            user_id=request.user_id,
-            answer=final_state["answer"],
-            source=final_state.get("source_used", "unknown")
-        )
-    except Exception as e:
-        print(f"Error: {e}")
-        raise HTTPException(status_code=500, detail="Internal Server Error")
-
-# --- 6. Health Check ---
-@app.get("/health")
-def health_check():
-    return {"status": "online", "model": "gpt-4o-mini"}
-
-# --- 7. Adding a new user ---------
 class RegisterRequest(BaseModel):
     username: str
     password: str
@@ -160,70 +110,175 @@ class RegisterRequest(BaseModel):
     position: str
     salary: float
 
-@app.post("/register")
-async def register(request: RegisterRequest):
+class DeleteRequest(BaseModel):
+    user_id: str
+
+# --- 3. DB Helpers ---
+def get_connection():
     conn = sqlite3.connect(DB_PATH)
+    conn.execute("PRAGMA foreign_keys = ON")
+    return conn
+
+def verify_user(username, password):
+    password_hash = hashlib.sha256(password.encode()).hexdigest()
+
+    conn = get_connection()
     cursor = conn.cursor()
 
-    # 1. Check if username exists
+    cursor.execute(
+        "SELECT user_id, role FROM users WHERE username = ? AND password_hash = ?",
+        (username, password_hash)
+    )
+
+    result = cursor.fetchone()
+    conn.close()
+
+    if result:
+        return {"user_id": result[0], "role": result[1]}
+    return None
+
+def get_user_role(user_id):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    cursor.execute("SELECT role FROM users WHERE user_id = ?", (user_id,))
+    result = cursor.fetchone()
+
+    conn.close()
+    return result[0] if result else "employee"
+
+# --- 4. Login ---
+@app.post("/login")
+async def login(request: LoginRequest):
+    user = verify_user(request.username, request.password)
+
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid username or password")
+
+    return {
+        "user_id": user["user_id"],
+        "role": user["role"],
+        "status": "success"
+    }
+
+# --- 5. Chat ---
+@app.post("/chat", response_model=ChatResponse)
+async def chat_endpoint(request: ChatRequest):
+    try:
+        user_role = get_user_role(request.user_id)
+
+        config = {
+            "configurable": {
+                "thread_id": request.user_id,
+                "role": user_role
+            }
+        }
+
+        initial_state = {
+            "messages": [HumanMessage(content=request.message)]
+        }
+
+        final_state = hr_agent.invoke(initial_state, config=config)
+
+        return ChatResponse(
+            user_id=request.user_id,
+            answer=final_state["answer"],
+            source=final_state.get("source_used", "unknown")
+        )
+
+    except Exception as e:
+        print(f"Error: {e}")
+        raise HTTPException(status_code=500, detail="Internal Server Error")
+
+# --- 6. Register ---
+@app.post("/register")
+async def register(request: RegisterRequest):
+    conn = get_connection()
+    cursor = conn.cursor()
+
+    # Check username
     cursor.execute("SELECT username FROM users WHERE username = ?", (request.username,))
     if cursor.fetchone():
         raise HTTPException(status_code=400, detail="Username already taken")
 
     try:
-        # 2. Generate a new User ID
         new_id = f"user_{random.randint(1000, 9999)}"
 
-        # 3. Insert into Employees (The AI's data source)
+        # Assign role (SAFE LOGIC)
+        if "hr" in request.position.lower():
+            role = "hr"
+        else:
+            role = "employee"
+
+        # Insert employee
         cursor.execute("""
             INSERT INTO employees (user_id, first_name, last_name, position, salary)
             VALUES (?, ?, ?, ?, ?)
         """, (new_id, request.first_name, request.last_name, request.position, request.salary))
 
-        # 4. Insert into Users (The Security source)
+        # Insert user with role
         password_hash = hashlib.sha256(request.password.encode()).hexdigest()
         cursor.execute("""
-            INSERT INTO users (user_id, username, password_hash)
-            VALUES (?, ?, ?)
-        """, (new_id, request.username, password_hash))
+            INSERT INTO users (user_id, username, password_hash, role)
+            VALUES (?, ?, ?, ?)
+        """, (new_id, request.username, password_hash, role))
 
         conn.commit()
-        return {"status": "success", "user_id": new_id}
+
+        return {
+            "status": "success",
+            "user_id": new_id,
+            "role": role
+        }
+
     except Exception as e:
         conn.rollback()
         raise HTTPException(status_code=500, detail=str(e))
+
     finally:
         conn.close()
 
-# --- Admin Deleting User ---
-class DeleteRequest(BaseModel):
-    user_id: str  # We delete by ID for precision
-
+# --- 7. Delete User (ADMIN ONLY) ---
 @app.post("/delete_user")
 async def delete_user(request: DeleteRequest):
-    conn = sqlite3.connect(DB_PATH)
+    conn = get_connection()
     cursor = conn.cursor()
 
     try:
-        # Check if user exists first
+        # 🔐 Check role of requester (IMPORTANT)
+        requester_role = get_user_role(request.user_id)
+
+        if requester_role != "admin":
+            raise HTTPException(status_code=403, detail="Admin only")
+
         cursor.execute("SELECT user_id FROM users WHERE user_id = ?", (request.user_id,))
         if not cursor.fetchone():
             raise HTTPException(status_code=404, detail="User not found")
 
-        # Start a transaction to ensure both are deleted or none are
         cursor.execute("DELETE FROM users WHERE user_id = ?", (request.user_id,))
         cursor.execute("DELETE FROM employees WHERE user_id = ?", (request.user_id,))
-        # Optional: Clear their chat history/audit logs too
         cursor.execute("DELETE FROM chat_audit_logs WHERE user_id = ?", (request.user_id,))
 
         conn.commit()
-        return {"status": "success", "message": f"User {request.user_id} offboarded successfully."}
+
+        return {
+            "status": "success",
+            "message": f"User {request.user_id} deleted"
+        }
+
     except Exception as e:
         conn.rollback()
-        raise HTTPException(status_code=500, detail=f"Database error: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
+
     finally:
         conn.close()
 
+# --- 8. Health ---
+@app.get("/health")
+def health_check():
+    return {"status": "online"}
+
+# --- 9. Run ---
 if __name__ == "__main__":
     uvicorn.run(app, host="0.0.0.0", port=8000)
 
