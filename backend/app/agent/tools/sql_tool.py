@@ -4,43 +4,77 @@ from pathlib import Path
 # Absolute path to the database
 DB_PATH = Path(__file__).parent.parent.parent / "db" / "hr_database.db"
 
-def query_employee_db(user_id: str, user_question: str):
+def query_employee_db(user_id: str, role: str, user_question: str):
     """
-    Fetches employee records from the SQL database for a specific user.
+    Role-Based Access Control for employee data.
     """
+
     try:
         conn = sqlite3.connect(DB_PATH)
-        # Allows accessing columns by name: row['salary']
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
-        print(f"--- SQL TOOL: Fetching record for {user_id} ---")
+        print(f"--- SQL TOOL: Role={role} | User={user_id} ---")
 
-        # Security: Always filter by the logged-in user_id
-        query = "SELECT * FROM employees WHERE user_id = ?"
-        cursor.execute(query, (user_id,))
-        row = cursor.fetchone()
-        conn.close()
+        # =========================
+        # 👤 EMPLOYEE ACCESS
+        # =========================
+        if role == "employee":
+            query = """
+                SELECT first_name, last_name, position, department,
+                       available_pto, hire_date, supervisor, location, skills
+                FROM employees
+                WHERE user_id = ?
+            """
+            cursor.execute(query, (user_id,))
+            row = cursor.fetchone()
 
-        if row:
-            # Convert the SQLite Row to a dictionary for the LLM to read easily
+            if not row:
+                return f"No record found for user {user_id}"
+
             data = dict(row)
 
-            # Create a descriptive string of the employee's data
-            info_str = (
-                f"Employee Record for {data['first_name']} {data['last_name']}:\n"
+            return (
+                f"Your Employee Record:\n"
+                f"- Name: {data['first_name']} {data['last_name']}\n"
                 f"- Position: {data['position']}\n"
                 f"- Department: {data['department']}\n"
-                f"- Salary: ${data['salary']:,.2f}\n"
                 f"- Available PTO: {data['available_pto']} days\n"
                 f"- Hire Date: {data['hire_date']}\n"
                 f"- Supervisor: {data['supervisor']}\n"
                 f"- Location: {data['location']}\n"
-                f"- Skills: {data['skills']}"
+                f"- Skills: {data['skills']}\n"
+                f"(Salary information is restricted.)"
             )
-            return info_str
 
-        return f"Error: No employee record found for User ID '{user_id}'."
+        # =========================
+        # 👨‍💼 HR ACCESS
+        # =========================
+        elif role == "hr":
+            query = "SELECT * FROM employees"
+            cursor.execute(query)
+            rows = cursor.fetchall()
+
+            return f"HR View: Retrieved {len(rows)} employee records."
+
+        # =========================
+        # 🛠 ADMIN ACCESS
+        # =========================
+        elif role == "admin":
+            query = "SELECT * FROM employees"
+            cursor.execute(query)
+            rows = cursor.fetchall()
+
+            return f"Admin View: Retrieved {len(rows)} employee records."
+
+        # =========================
+        # ❌ UNKNOWN ROLE
+        # =========================
+        else:
+            return "Access denied: Invalid role."
 
     except Exception as e:
-        return f"Error querying database: {str(e)}"
+        return f"Database error: {str(e)}"
+
+    finally:
+        conn.close()
