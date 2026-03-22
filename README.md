@@ -5,6 +5,8 @@
 
 ---
 
+<a id="table-of-contents"></a>
+
 ## 📖 Table of Contents
 
 - [Introduction](#introduction)
@@ -42,12 +44,13 @@
 - [Security Design](#security-design)
 - [Current Limitations](#current-limitations)
 - [Future Improvements](#future-improvements)
+- [Why JWT Authentication Matters](#why-jwt-authentication-matters)
 
 ---
 
 ## Introduction
 
-[[Back to Top]](#-table-of-contents)
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 **HRChat** is a context-aware, multi-user HR assistant that gives every employee instant, personalised answers to HR questions — while making sure they can only ever see data they are authorised to see.
 
@@ -64,9 +67,11 @@ Most chatbots handle one or the other. HRChat handles both, automatically routin
 
 ## Why This Project Matters
 
-[[Back to Top]](#-table-of-contents)
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 ### The Problem
+
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 Traditional HR support has two failure modes:
 
@@ -75,6 +80,8 @@ Traditional HR support has two failure modes:
 **Too risky** — giving employees direct database access is dangerous. An employee should be able to ask *"What is my salary?"* but must never be able to see a colleague's salary. A simple chatbot with no access control is a security liability.
 
 ### What HRChat Demonstrates
+
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 | Capability | Why It's Non-Trivial |
 |---|---|
@@ -86,6 +93,8 @@ Traditional HR support has two failure modes:
 
 ### Who It's For
 
+<a href="#table-of-contents">🔝 Back to Top</a>
+
 - **Employees** — get instant answers to personal HR questions without waiting for a human response
 - **HR teams** — reduce repetitive query volume and focus on higher-value work
 - **Admins** — full visibility via audit logs and role-management controls
@@ -95,9 +104,11 @@ Traditional HR support has two failure modes:
 
 ## How It Works — Architecture Flow
 
-[[Back to Top]](#-table-of-contents)
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 ### High-Level Flow
+
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 ```
 User sends a message
@@ -145,6 +156,8 @@ FastAPI returns JSON to the client:
 
 ### Why Each Design Decision Was Made
 
+<a href="#table-of-contents">🔝 Back to Top</a>
+
 **Why LangGraph instead of a simple LangChain chain?**
 
 A linear chain cannot branch. HRChat needs to route questions to different tools based on intent — that requires a graph with conditional edges. LangGraph's `StateGraph` also provides built-in checkpointing via `SqliteSaver`, giving the agent persistent memory across sessions with zero extra code.
@@ -169,13 +182,15 @@ SQLite is file-based and requires zero infrastructure setup, making it ideal for
 
 ## Tech Stack
 
-[[Back to Top]](#-table-of-contents)
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 HRChat is built entirely in Python on the backend, with each technology chosen for a specific reason — not just familiarity.
 
 ---
 
 ### 🌐 API Layer
+
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 | Package | Version | Role |
 |---|---|---|
@@ -188,6 +203,8 @@ HRChat is built entirely in Python on the backend, with each technology chosen f
 ---
 
 ### 🤖 AI & Agent Orchestration
+
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 | Package | Version | Role |
 |---|---|---|
@@ -202,6 +219,8 @@ HRChat is built entirely in Python on the backend, with each technology chosen f
 
 ### 🧠 LLM & Embeddings
 
+<a href="#table-of-contents">🔝 Back to Top</a>
+
 | Model | Provider | Used In | Purpose |
 |---|---|---|---|
 | `gpt-4o-mini` / `gpt-4` | OpenAI | `generate_node` | Writes natural-language answers from retrieved context |
@@ -212,6 +231,8 @@ HRChat is built entirely in Python on the backend, with each technology chosen f
 ---
 
 ### 🗃️ Databases
+
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 | Database | File | Role |
 |---|---|---|
@@ -227,6 +248,8 @@ HRChat is built entirely in Python on the backend, with each technology chosen f
 
 ### 📄 PDF Ingestion
 
+<a href="#table-of-contents">🔝 Back to Top</a>
+
 | Package | Role |
 |---|---|
 | `pypdf` | Extracts raw text from each page of uploaded HR policy PDFs |
@@ -238,6 +261,8 @@ HRChat is built entirely in Python on the backend, with each technology chosen f
 ---
 
 ### 🔐 Security & Auth
+
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 | Tool | Role |
 |---|---|
@@ -251,6 +276,8 @@ HRChat is built entirely in Python on the backend, with each technology chosen f
 
 ### 🌱 Data & Dev Tools
 
+<a href="#table-of-contents">🔝 Back to Top</a>
+
 | Package | Role |
 |---|---|
 | `faker` | Generates realistic fake employee data (names, emails, phone numbers, hire dates) for seeding |
@@ -259,6 +286,8 @@ HRChat is built entirely in Python on the backend, with each technology chosen f
 ---
 
 ### 🖥️ Frontend *(Planned)*
+
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 | Technology | Role |
 |---|---|
@@ -270,6 +299,8 @@ HRChat is built entirely in Python on the backend, with each technology chosen f
 ---
 
 ### Full Dependency Map
+
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 ```
 User Request
@@ -304,7 +335,7 @@ JSON response
 
 ## Folder Structure
 
-[[Back to Top]](#-table-of-contents)
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 ```
 HRChat/
@@ -353,11 +384,11 @@ HRChat/
 
 ## Backend Deep Dive
 
-[[Back to Top]](#-table-of-contents)
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 ### `main.py` — The API Gateway
 
-[[Back to Top]](#-table-of-contents)
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 The only file that communicates with the outside world. Hosts all HTTP endpoints and two critical internal helpers.
 
@@ -405,7 +436,7 @@ final_state = hr_agent.invoke(initial_state, config=config)
 
 ### `graph.py` — The Agent Orchestrator
 
-[[Back to Top]](#-table-of-contents)
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 Defines the **LangGraph `StateGraph`** — the execution flowchart of the entire agent.
 
@@ -452,7 +483,7 @@ hr_agent = builder.compile(checkpointer=memory)
 
 ### `nodes.py` — The Decision Stations
 
-[[Back to Top]](#-table-of-contents)
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 Each node is a Python function that reads from and writes to the shared `AgentState` dictionary.
 
@@ -468,7 +499,7 @@ Each node is a Python function that reads from and writes to the shared `AgentSt
 
 ### `sql_tool.py` — The RBAC Enforcer
 
-[[Back to Top]](#-table-of-contents)
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 > 🔐 **This is the most critical security file in the system.**
 
@@ -513,7 +544,7 @@ DB_PATH = Path(__file__).parent.parent.parent / "db" / "hr_database.db"
 
 ### `retriever.py` — The Policy Search Engine
 
-[[Back to Top]](#-table-of-contents)
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 Connects to the Pinecone index created by `ingest.py` and wraps it as a LangChain retriever.
 
@@ -538,7 +569,7 @@ The retriever finds the 3 most semantically relevant chunks from ingested PDFs a
 
 ### `connection.py` — The DB Bridge
 
-[[Back to Top]](#-table-of-contents)
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 Two responsibilities:
 
@@ -550,11 +581,11 @@ Two responsibilities:
 
 ## Data Scripts
 
-[[Back to Top]](#-table-of-contents)
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 ### `ingest.py` — PDF to Pinecone
 
-[[Back to Top]](#-table-of-contents)
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 Scans `data/raw/` for PDF files and uploads them to Pinecone as vector embeddings. Uses an MD5 manifest to skip files that haven't changed since the last run.
 
@@ -599,7 +630,7 @@ To add new policy documents: drop any `.pdf` into `data/raw/` and re-run `ingest
 
 ### `seed_employees.py` — Database Seeding
 
-[[Back to Top]](#-table-of-contents)
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 Populates `hr_database.db` with fake or manually entered employees and their login credentials. The script evolved through three versions (basic seeding → password support → RBAC support) — the active version supports both auto and manual modes.
 
@@ -640,7 +671,7 @@ python seed_employees.py
 
 ## End-to-End Request Flow
 
-[[Back to Top]](#-table-of-contents)
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 Complete trace for an employee asking *"How many vacation days do I have?"*:
 
@@ -690,11 +721,13 @@ Complete trace for an employee asking *"How many vacation days do I have?"*:
 
 ## Role-Based Access Control (RBAC)
 
-[[Back to Top]](#-table-of-contents)
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 > **Design principle:** RBAC is enforced at the **data access layer** (`sql_tool.py`). Even if a client sends a forged `user_id`, the SQL query itself restricts what data is returned. The UI and LLM have no ability to override this.
 
 ### The Three Roles
+
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 | Role | Data Access | Admin Actions |
 |---|---|---|
@@ -703,6 +736,8 @@ Complete trace for an employee asking *"How many vacation days do I have?"*:
 | `admin` | All employee records + `/delete_user` endpoint | Delete any user and their data |
 
 ### How Role Is Determined
+
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 **At registration (`/register`):**
 
@@ -730,6 +765,8 @@ user_role = get_user_role(request.user_id)  # Always re-fetched from DB
 ```
 
 ### What Each Role Sees
+
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 **Employee asks "What is my salary?"**
 
@@ -761,11 +798,13 @@ Access denied: Invalid role.
 
 ## API Reference
 
-[[Back to Top]](#-table-of-contents)
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 All endpoints are served at `http://localhost:8000`. Interactive Swagger docs available at `/docs`.
 
 ### `POST /login`
+
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 Authenticate a user and retrieve their `user_id` and `role`.
 
@@ -791,6 +830,8 @@ Returns `401` if credentials are invalid.
 ---
 
 ### `POST /register`
+
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 Register a new employee. Role is auto-assigned from the position field.
 
@@ -821,6 +862,8 @@ Returns `400` if username is already taken. Runs as a transaction — rolls back
 
 ### `POST /chat`
 
+<a href="#table-of-contents">🔝 Back to Top</a>
+
 Send a message to the HR agent. Role is always fetched server-side.
 
 **Request body:**
@@ -846,6 +889,8 @@ Send a message to the HR agent. Role is always fetched server-side.
 
 ### `POST /delete_user`
 
+<a href="#table-of-contents">🔝 Back to Top</a>
+
 Delete a user and all their associated records. **Admin role required.**
 
 **Request body:**
@@ -869,6 +914,8 @@ Deletes from `users`, `employees`, and `chat_audit_logs` in a single transaction
 
 ### `GET /health`
 
+<a href="#table-of-contents">🔝 Back to Top</a>
+
 ```json
 { "status": "online" }
 ```
@@ -877,11 +924,13 @@ Deletes from `users`, `employees`, and `chat_audit_logs` in a single transaction
 
 ## Database Schema
 
-[[Back to Top]](#-table-of-contents)
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 Three SQLite tables defined as `.sql` blueprints in `backend/app/db/schemas/`. All are created via `init_db()` on startup using `CREATE TABLE IF NOT EXISTS`, so they are safe to run repeatedly.
 
 ### `employees` table (`employees.sql`)
+
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 This is the **primary data table** — created first because `users` holds a foreign key to it.
 
@@ -923,6 +972,8 @@ CREATE TABLE IF NOT EXISTS employees (
 
 ### `users` table (`auth.sql`)
 
+<a href="#table-of-contents">🔝 Back to Top</a>
+
 Stores login credentials and roles. Has a **foreign key constraint** back to `employees`, so an employee record must exist before a user record can be created.
 
 ```sql
@@ -947,9 +998,39 @@ CREATE TABLE IF NOT EXISTS users (
 
 > **Note:** The `CHECK(role IN ('employee', 'hr', 'admin'))` constraint means invalid roles are rejected by SQLite itself — not just by application logic.
 
+#### ❓ Why Is `role` in the `users` table and NOT in the `employees` table?
+
+This is a deliberate **separation of concerns** — one of the most important design decisions in the schema.
+
+The `employees` table stores **who you are** as a person inside the organisation:
+
+```
+name, position, department, salary, hire_date, supervisor, skills, location
+```
+
+The `users` table stores **how you authenticate and what you are allowed to do** inside the system:
+
+```
+username, password_hash, role, created_at
+```
+
+These are fundamentally different categories of data. Here is why keeping them separate matters:
+
+| Reason | Explanation |
+|---|---|
+| **Conceptual clarity** | An employee record is an HR record — it describes a person's job. A user record is a system record — it describes a login identity. Mixing them couples two unrelated concerns. |
+| **Role ≠ Job title** | An employee's `position` (e.g. `"HR Specialist"`) is a business fact. Their `role` (e.g. `"hr"`) is a system permission. A person can change job title without changing system access, or vice versa. Keeping them separate allows each to change independently. |
+| **Security boundary** | Authentication data (`password_hash`, `role`) should be isolated from general HR data (`salary`, `supervisor`). If a query accidentally exposes the `employees` table too broadly, it does not leak password hashes or role assignments. |
+| **A person can exist without a login** | An employee record can exist in `employees` before they are ever given system access. The `users` record is only created when they are granted a login. The FK constraint enforces this order — `users` cannot exist without a matching `employees` row, but `employees` can exist without a `users` row. |
+| **Future flexibility** | If the system later adds SSO, OAuth, or multi-factor auth, only the `users` table needs to change. The `employees` table — which other parts of the system query for HR data — remains completely unaffected. |
+
+> **In short:** `employees` answers *"Who are you?"*. `users` answers *"What are you allowed to do?"*. Keeping these questions in separate tables is standard database design practice and makes the system more secure, flexible, and maintainable.
+
 ---
 
 ### `chat_audit_logs` table (`chat_audit_logs.sql`)
+
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 An append-only log of every question asked and every answer returned. Written by `audit_node` via `save_to_audit_log()` after every chat response.
 
@@ -979,6 +1060,8 @@ CREATE TABLE IF NOT EXISTS chat_audit_logs (
 
 ### Schema Relationships
 
+<a href="#table-of-contents">🔝 Back to Top</a>
+
 ```
 employees (user_id)  ←──── users (user_id)   [FK, enforced by PRAGMA foreign_keys = ON]
 employees (user_id)  ←──── chat_audit_logs (user_id)   [soft reference, no FK constraint]
@@ -990,7 +1073,7 @@ Creation order matters: `employees` must be initialised before `users` due to th
 
 ## Environment Variables
 
-[[Back to Top]](#-table-of-contents)
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 Create a `.env` file in the project root:
 
@@ -1009,9 +1092,11 @@ PINECONE_INDEX_NAME=hrchat-policies
 
 ## Setup and Running Locally
 
-[[Back to Top]](#-table-of-contents)
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 ### Prerequisites
+
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 Make sure the following are installed before you begin:
 
@@ -1027,6 +1112,8 @@ Make sure the following are installed before you begin:
 
 ### Step 1 — Clone the Repository
 
+<a href="#table-of-contents">🔝 Back to Top</a>
+
 ```bash
 git clone https://github.com/abhisakh/HRChat.git
 cd HRChat
@@ -1035,6 +1122,8 @@ cd HRChat
 ---
 
 ### Step 2 — Create a Virtual Environment
+
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 ```bash
 # Create the environment
@@ -1052,6 +1141,8 @@ You should see `(venv)` at the start of your terminal prompt once activated.
 ---
 
 ### Step 3 — Install Dependencies
+
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 ```bash
 pip install -r requirements.txt
@@ -1076,6 +1167,8 @@ Key packages that will be installed:
 
 ### Step 4 — Configure Environment Variables
 
+<a href="#table-of-contents">🔝 Back to Top</a>
+
 Create a `.env` file in the project root:
 
 ```bash
@@ -1099,6 +1192,8 @@ PINECONE_INDEX_NAME=hrchat-policies
 
 ### Step 5 — Ingest Policy Documents into Pinecone
 
+<a href="#table-of-contents">🔝 Back to Top</a>
+
 Drop your HR policy PDF files into `data/raw/`, then run:
 
 ```bash
@@ -1117,6 +1212,8 @@ Already-indexed, unchanged files are skipped automatically on subsequent runs th
 ---
 
 ### Step 6 — Seed the Database
+
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 Populate `hr_database.db` with employee records and login credentials:
 
@@ -1157,6 +1254,8 @@ python data/scripts/seed_employees.py
 
 ### Step 7 — Start the Backend with Uvicorn
 
+<a href="#table-of-contents">🔝 Back to Top</a>
+
 ```bash
 uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 ```
@@ -1184,6 +1283,8 @@ The two SQLite files are auto-created on first startup:
 ---
 
 ### Step 8 — Verify Everything Is Running
+
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 **Health check:**
 
@@ -1218,6 +1319,8 @@ Or open **`http://localhost:8000/docs`** in your browser for the full interactiv
 
 ### Folder State After Full Setup
 
+<a href="#table-of-contents">🔝 Back to Top</a>
+
 After completing all steps, your `backend/app/db/` folder will contain:
 
 ```
@@ -1235,6 +1338,8 @@ db/
 
 ### Common Issues
 
+<a href="#table-of-contents">🔝 Back to Top</a>
+
 | Problem | Likely Cause | Fix |
 |---|---|---|
 | `ModuleNotFoundError: backend` | Running from wrong directory | Run all commands from the project root (`HRChat/`) |
@@ -1247,7 +1352,7 @@ db/
 
 ## File Responsibilities
 
-[[Back to Top]](#-table-of-contents)
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 | File | Location | Responsibility |
 |---|---|---|
@@ -1268,7 +1373,7 @@ db/
 
 ## Security Design
 
-[[Back to Top]](#-table-of-contents)
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 | Layer | What it does | File |
 |---|---|---|
@@ -1281,13 +1386,14 @@ db/
 | **Data Layer** | SQL query changes based on role — salary excluded for employees | `sql_tool.py` ✅ |
 | **Data Layer** | Employee query always `WHERE user_id = ?` — cross-user access impossible | `sql_tool.py` ✅ |
 | **DB** | Foreign keys enforced via `PRAGMA foreign_keys = ON` | `connection.py` |
+| **DB** | `role` stored in `users` table, not `employees` — separates authentication data from HR data, so a broad `employees` query can never leak role assignments or password hashes | `auth.sql` |
 | **Memory** | `thread_id = user_id` — conversation history is per-user isolated | `graph.py` |
 
 ---
 
 ## Current Limitations
 
-[[Back to Top]](#-table-of-contents)
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 - **No JWT** — `user_id` is passed in the request body. The SQL layer still restricts data by role, but a client could attempt to send any `user_id` string.
 - **SHA-256 password hashing** — SHA-256 is fast, making brute-force attacks cheaper. Production should use `bcrypt` or `argon2`.
@@ -1300,7 +1406,7 @@ db/
 
 ## Future Improvements
 
-[[Back to Top]](#-table-of-contents)
+<a href="#table-of-contents">🔝 Back to Top</a>
 
 | Priority | Improvement | Detail |
 |---|---|---|
@@ -1312,6 +1418,180 @@ db/
 | 🟢 Low | **Column-level security** | Granular field restrictions — e.g. only payroll admin can see salary, not all HR staff. |
 | 🟢 Low | **Streaming responses** | Stream LLM tokens to the frontend for a real-time typing effect via SSE or WebSocket. |
 | 🟢 Low | **Frontend build** | Complete the Next.js chat UI with `useChat` hook and role-aware display components. |
+
+---
+
+## Why JWT Authentication Matters
+
+<a href="#table-of-contents">🔝 Back to Top</a>
+
+HRChat currently identifies users by passing `user_id` as a plain string in the request body. JWT (JSON Web Token) authentication would replace this with a cryptographically signed token — and the difference is significant at every layer of the architecture.
+
+---
+
+### The Current Problem — Trusting a Plain `user_id`
+
+Right now, the `/chat` endpoint receives this:
+
+```json
+{
+  "user_id": "user_4821",
+  "message": "What is my salary?"
+}
+```
+
+The server takes `user_id` at face value, looks up the role from the DB, and runs the query. The SQL layer (`sql_tool.py`) still restricts *what data* comes back — so even if someone sends `user_id: "user_0001"` (someone else's ID), they only get that user's non-salary fields.
+
+But the problem is **identity spoofing** — a malicious user can impersonate any `user_id` they can guess. The data they get back is still RBAC-restricted, but they are now reading someone else's employment record (name, position, PTO, supervisor, department). That is a privacy violation even without salary exposure.
+
+```
+Current flow — vulnerable to spoofing:
+
+Client sends: { "user_id": "user_4821" }   ← anyone can type any ID
+                     ↓
+main.py: get_user_role("user_4821")         ← role fetched, but ID not verified
+                     ↓
+sql_tool.py: WHERE user_id = "user_4821"   ← correct restriction, wrong identity
+```
+
+---
+
+### How JWT Fixes This
+
+After a successful `/login`, the server would issue a **signed JWT token** containing the user's identity and role:
+
+```json
+{
+  "sub": "user_4821",
+  "role": "employee",
+  "exp": 1780000000
+}
+```
+
+This token is signed with a secret key only the server knows. The client stores it and sends it with every request in the `Authorization` header:
+
+```
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+The server verifies the signature on every request — if the token has been tampered with, the signature check fails and the request is rejected immediately.
+
+```
+JWT flow — identity is verified:
+
+Client sends: Authorization: Bearer <signed_token>
+                     ↓
+main.py: decode_token(token)
+  → verifies signature  ← cannot be forged without the secret key
+  → extracts user_id + role from payload
+  → no DB lookup needed for role
+                     ↓
+sql_tool.py: WHERE user_id = verified_user_id   ← identity is now trustworthy
+```
+
+---
+
+### How JWT Would Change Each Layer of HRChat
+
+| Layer | Current behaviour | With JWT |
+|---|---|---|
+| **`/login`** | Returns `user_id` + `role` as plain JSON | Returns a signed JWT token containing `user_id` + `role` + expiry |
+| **`/chat`** | Accepts `user_id` from request body — not verified | Reads JWT from `Authorization` header — signature verified before any logic runs |
+| **`main.py`** | Calls `get_user_role(user_id)` — one DB query per request | Decodes JWT payload — role is already inside the token, no DB lookup needed |
+| **`graph.py`** | Injects role from DB result | Injects role from verified JWT payload — same code, more trustworthy input |
+| **`sql_tool.py`** | RBAC enforced, but `user_id` could be spoofed | RBAC enforced with a `user_id` that has been cryptographically verified |
+| **Logout** | No mechanism — nothing to invalidate | Token has an `exp` (expiry) field — short-lived tokens expire automatically |
+
+---
+
+### What a JWT Implementation Would Look Like in HRChat
+
+**Generating the token at login (`main.py`):**
+
+```python
+import jwt
+from datetime import datetime, timedelta
+
+SECRET_KEY = os.getenv("JWT_SECRET")
+
+def create_token(user_id: str, role: str) -> str:
+    payload = {
+        "sub":  user_id,
+        "role": role,
+        "exp":  datetime.utcnow() + timedelta(hours=8)
+    }
+    return jwt.encode(payload, SECRET_KEY, algorithm="HS256")
+
+@app.post("/login")
+async def login(request: LoginRequest):
+    user = verify_user(request.username, request.password)
+    if not user:
+        raise HTTPException(status_code=401, detail="Invalid credentials")
+    token = create_token(user["user_id"], user["role"])
+    return { "access_token": token, "token_type": "bearer" }
+```
+
+**Verifying the token on every protected request (`main.py`):**
+
+```python
+from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
+from fastapi import Depends, Security
+
+security = HTTPBearer()
+
+def verify_token(credentials: HTTPAuthorizationCredentials = Security(security)):
+    try:
+        payload = jwt.decode(credentials.credentials, SECRET_KEY, algorithms=["HS256"])
+        return { "user_id": payload["sub"], "role": payload["role"] }
+    except jwt.ExpiredSignatureError:
+        raise HTTPException(status_code=401, detail="Token expired")
+    except jwt.InvalidTokenError:
+        raise HTTPException(status_code=401, detail="Invalid token")
+
+@app.post("/chat", response_model=ChatResponse)
+async def chat_endpoint(request: ChatRequest, token_data: dict = Depends(verify_token)):
+    # user_id and role now come from the verified token — not the request body
+    user_id = token_data["user_id"]
+    user_role = token_data["role"]
+
+    config = {
+        "configurable": {
+            "thread_id": user_id,
+            "role": user_role        # ← verified, cannot be spoofed
+        }
+    }
+    ...
+```
+
+**New environment variable needed:**
+
+```env
+JWT_SECRET=your-long-random-secret-key-here
+```
+
+---
+
+### JWT Security Properties That HRChat Gains
+
+| Property | What it means for HRChat |
+|---|---|
+| **Stateless authentication** | The server does not need to look up the session in a DB on every request — the token is self-contained. Reduces DB load at scale. |
+| **Tamper detection** | If anyone modifies the `user_id` or `role` inside the token, the signature check fails instantly. Identity spoofing becomes cryptographically impossible. |
+| **Automatic expiry** | The `exp` field means tokens become invalid after a set time (e.g. 8 hours). No explicit logout needed — the token simply stops working. |
+| **Role embedded in token** | `get_user_role(user_id)` DB call is eliminated on every `/chat` request. Role is read directly from the verified payload. |
+| **Standard and interoperable** | JWT is an open standard (RFC 7519). Any frontend — Next.js, mobile app, third-party client — can consume it without custom session logic. |
+
+---
+
+### What JWT Does NOT Solve
+
+JWT is not a silver bullet. These limitations would remain even after adding JWT to HRChat:
+
+- **SHA-256 password hashing** — still needs to be replaced with `bcrypt` or `argon2` at the `/login` step
+- **Token revocation** — a signed token is valid until it expires. If a user's role changes mid-session, their token still carries the old role until expiry. A token blacklist or short expiry window is needed to handle this
+- **RBAC enforcement** — JWT only verifies identity. `sql_tool.py` still needs to enforce what each role can see — JWT does not replace this
+
+> 🔐 **Summary:** JWT does not change *what* users can access — `sql_tool.py` controls that. JWT changes *whether we can trust who they claim to be*. Both layers are necessary for a fully secure system.
 
 ---
 
