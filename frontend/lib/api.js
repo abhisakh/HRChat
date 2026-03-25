@@ -1,34 +1,70 @@
-import React, { useState } from 'react';
-import Login from './components/auth/Login';
-import ChatWindow from './components/chat/ChatWindow';
+/**
+ * frontend/lib/api.js
+ * This file acts as the single point of contact between
+ * our React Frontend and our FastAPI Backend.
+ */
+
+const BASE_URL = "http://localhost:8000";
 
 /**
- * App.js - The Root Component
- * Manages the "Global State" (is the user logged in?)
+ * Sends credentials to the backend to get a user's session data.
+ * @param {string} username
+ * @param {string} password
+ * @returns {Promise<Object>} Returns {user_id, role, status}
  */
-function App() {
-  // 1. Define State: 'user' starts as null.
-  // After login, it will look like { user_id: "user_123", role: "employee" }
-  const [user, setUser] = useState(null);
+export const loginUser = async (username, password) => {
+    try {
+        const response = await fetch(`${BASE_URL}/login`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ username, password }),
+        });
 
-  // 2. Logout function to clear the state
-  const handleLogout = () => {
-    setUser(null);
-    console.log("User logged out, state cleared.");
-  };
+        if (!response.ok) {
+            throw new Error("Invalid username or password");
+        }
 
-  // 3. Conditional Rendering: This is the "Switch"
-  return (
-    <div className="app-container">
-      {!user ? (
-        // If no user, show Login. Pass 'setUser' as a prop so Login can update it.
-        <Login onLoginSuccess={(data) => setUser(data)} />
-      ) : (
-        // If user exists, show Chat. Pass 'user' data and 'handleLogout' down.
-        <ChatWindow user={user} onLogout={handleLogout} />
-      )}
-    </div>
-  );
-}
+        return await response.json();
+    } catch (error) {
+        console.error("Login Error:", error);
+        throw error;
+    }
+};
 
-export default App;
+/**
+ * Sends a chat message to the LangGraph agent.
+ * @param {string} userId - The unique ID of the logged-in user.
+ * @param {string} message - The question asked by the user.
+ * @returns {Promise<Object>} Returns {user_id, answer, source}
+ */
+export const sendChatMessage = async (userId, message) => {
+    try {
+        const response = await fetch(`${BASE_URL}/chat`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ user_id: userId, message: message }),
+        });
+
+        if (!response.ok) {
+            throw new Error("Failed to get response from AI");
+        }
+
+        return await response.json();
+    } catch (error) {
+        console.error("Chat Error:", error);
+        throw error;
+    }
+};
+
+/**
+ * Registers a new employee in the system.
+ * @param {Object} userData - Contains first_name, last_name, position, salary, etc.
+ */
+export const registerUser = async (userData) => {
+    const response = await fetch(`${BASE_URL}/register`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(userData),
+    });
+    return await response.json();
+};
