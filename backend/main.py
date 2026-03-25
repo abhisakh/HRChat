@@ -73,6 +73,7 @@ from pathlib import Path
 
 from backend.app.agent.graph import hr_agent
 from backend.app.db.connection import init_db
+from backend.app.db.connection import save_to_audit_log
 from langchain_core.messages import HumanMessage
 
 DB_PATH = Path(__file__).parent / "app" / "db" / "hr_database.db"
@@ -179,6 +180,14 @@ async def chat_endpoint(request: ChatRequest):
         }
 
         final_state = hr_agent.invoke(initial_state, config=config)
+
+        save_to_audit_log(
+            user_id=request.user_id,
+            question=request.message,
+            answer=final_state["answer"],
+            source=final_state.get("source_used", "unknown"),
+            node_path=" -> ".join(final_state.get("steps", ["unknown"])) # Assuming your graph tracks steps
+        )
 
         return ChatResponse(
             user_id=request.user_id,
