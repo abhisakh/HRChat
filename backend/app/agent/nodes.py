@@ -30,27 +30,27 @@ class RouteQuery(BaseModel):
     )
 
 def router_node(state: AgentState, config: RunnableConfig):
-    """Analyzes the question to decide between SQL and Vector."""
     print("--- NODE: ROUTER ---")
-
     user_role = config["configurable"].get("role", "employee")
     user_question = state["messages"][-1].content
 
     structured_llm = llm.with_structured_output(RouteQuery)
 
+    # Improved prompt to differentiate between "Policy" and "Data"
     route = structured_llm.invoke(
         f"""
         User role: {user_role}
-
-        Decide:
-        - Use 'sql' for personal/employee data
-        - Use 'vector' for general HR policy
-
         Question: {user_question}
+
+        Strict Routing Rules:
+        1. Use 'sql' if the question requires looking up a specific person, a specific balance (PTO/Salary), or a direct relationship (Supervisor/Team).
+        2. Use 'vector' ONLY for general rules, 'how-to' guides, or company-wide policies that apply to everyone.
+
+        If the question is about 'Who', 'My', or 'Me', always choose 'sql'.
         """
     )
 
-    return {"source_used": route.datasource}
+    return {"source_used": str(route.datasource).lower()} # Force lowercase for the Edge match
 
 # --- DATA NODES ---
 def retrieve_node(state: AgentState):
@@ -71,53 +71,54 @@ def sql_node(state: AgentState, config: RunnableConfig):
 
     # 🔐 Pass role into SQL tool
     result = query_employee_db(user_id, user_role, user_question)
-
+    print(f"DEBUG SQL RESULT: {result}")
     return {"context": [result]}
 
 # --- GENERATION NODE ---
 def generate_node(state: AgentState, config: RunnableConfig):
-    """Generates the final response based on the gathered context."""
     print("--- NODE: GENERATE ---")
 
-    user_role = config["configurable"].get("role", "employee")
-    formatted_context = "\n\n".join(state["context"])
+    # DEFINE the prompt first!
+    prompt_text = f"""
+    You are a helpful HR Assistant.
+    Context from Database: {state['context']}
 
-    system_prompt = f"""
-    You are a professional HR Assistant.
-
-    The user role is: {user_role}
-
-    If the user asks for restricted information:
-    - Politely refuse
-    - Do not fabricate data
-
-    Use the retrieved context to answer.
-
-    CONTEXT:
-    {formatted_context}
+    Answer the user's question based ONLY on the context provided.
+    If contact info is there, share it. If salary is missing, say it's restricted.
     """
 
-    messages = [SystemMessage(content=system_prompt)] + state["messages"]
-    response = llm.invoke(messages)
+    # Ensure you are calling the LLM with the defined string
+    messages = [
+        {"role": "system", "content": prompt_text},
+        {"role": "user", "content": state["messages"][-1].content}
+    ]
 
-    return {"messages": [response], "answer": response.content}
+    response = llm.invoke(messages)
+    return {"answer": response.content}
 
 # --- AUDIT NODE ---
 def audit_node(state: AgentState, config: RunnableConfig):
     """Final node to record the transaction."""
     print("--- NODE: AUDIT LOGGING ---")
 
-    # Extract details from the state and config
+    # 1. Extract details
     user_id = config["configurable"].get("thread_id", "unknown_user")
-    # messages[0] is usually the very first HumanMessage in the thread
-    # messages[-2] is the most recent HumanMessage if history is long
+    source = state.get("source_used", "vector")
+
+    # Get the user's question (usually the second to last message in the list)
     user_question = state["messages"][-2].content if len(state["messages"]) > 1 else "Unknown"
 
+    # 2. CREATE the missing argument
+    # This helps you track the AI's logic path in your database
+    current_path = f"router -> {source}_search -> generate"
+
+    # 3. Call with all 5 arguments
     save_to_audit_log(
         user_id=user_id,
         question=user_question,
         answer=state["answer"],
-        source=state.get("source_used", "vector")
+        source=source,
+        node_path=current_path  # <--- FIXED: Added the missing 5th argument
     )
 
     return state

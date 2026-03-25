@@ -15,9 +15,10 @@ def init_db():
     conn.close()
 
 def save_to_audit_log(user_id, question, answer, source, node_path):
-    """Saves the interaction details with the AI decision path."""
+    """Saves the interaction details using the standardized connection."""
     try:
-        conn = sqlite3.connect(DB_PATH)
+        # Use the helper to get the timeout benefit
+        conn = get_db_connection()
         cursor = conn.cursor()
         cursor.execute("""
             INSERT INTO chat_audit_logs (user_id, question, answer, source_used, node_path)
@@ -27,3 +28,9 @@ def save_to_audit_log(user_id, question, answer, source, node_path):
         conn.close()
     except Exception as e:
         print(f"Logging Error: {e}")
+
+def get_db_connection():
+    # Add 'timeout' to wait for other writes to finish before failing
+    conn = sqlite3.connect(DB_PATH, timeout=30)
+    conn.row_factory = sqlite3.Row
+    return conn

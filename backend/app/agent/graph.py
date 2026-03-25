@@ -28,7 +28,7 @@ builder.add_edge(START, "router")
 # This looks at 'source_used' in the state and picks the next node
 builder.add_conditional_edges(
     "router",
-    lambda state: state["source_used"],
+    lambda state: str(state.get("source_used", "vector")).lower().strip(),
     {
         "sql": "sql_search",
         "vector": "retrieve"
