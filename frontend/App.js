@@ -8,7 +8,7 @@ import ChatWindow from './components/chat/ChatWindow';
  */
 function App() {
   // 1. Define State: 'user' starts as null.
-  // After login, it will look like { user_id: "user_123", role: "employee" }
+  // After login, it will look like { user_id: "user_123", role:"employee" }
   const [user, setUser] = useState(null);
 
   // 2. Logout function to clear the state
