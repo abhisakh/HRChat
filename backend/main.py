@@ -76,12 +76,23 @@ from backend.app.db.connection import init_db
 from backend.app.db.connection import save_to_audit_log
 from langchain_core.messages import HumanMessage
 
+from fastapi.middleware.cors import CORSMiddleware
+
 DB_PATH = Path(__file__).parent / "app" / "db" / "hr_database.db"
 
 app = FastAPI(
     title="HRChat API",
     description="Multi-user HR Assistant with RBAC",
     version="2.0.0"
+)
+
+#------- ALLOW THE BACKEND AT 8000 TO COMMUNICATE WITH THE FRONTEND AR 3000 -----
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["http://localhost:3000"], # Your JS Frontend URL
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # --- 1. Startup ---
