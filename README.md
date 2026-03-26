@@ -22,6 +22,8 @@
   - [PDF Ingestion](#-pdf-ingestion)
   - [Security & Auth](#-security--auth)
   - [Data & Dev Tools](#-data--dev-tools)
+  - [Frontend](#️-frontend)
+  - [Full Dependency Map](#full-dependency-map)
 - [Folder Structure](#folder-structure)
 - [Backend Deep Dive](#backend-deep-dive)
   - [main.py — The API Gateway](#mainpy--the-api-gateway)
@@ -59,7 +61,6 @@
 - [Future Improvements](#future-improvements)
 - [Why JWT Authentication Matters](#why-jwt-authentication-matters)
 - [Frontend](#frontend)
-  - [Tech Stack](#frontend-tech-stack)
   - [Folder Structure](#frontend-folder-structure)
   - [Component Architecture](#component-architecture)
   - [File Breakdown](#file-breakdown)
@@ -206,7 +207,7 @@ SQLite is file-based and requires zero infrastructure setup, making it ideal for
 
 <a href="#table-of-contents">🔝 Back to Top</a>
 
-HRChat is built entirely in Python on the backend, with each technology chosen for a specific reason — not just familiarity.
+HRChat spans two ecosystems — a Python backend and a JavaScript frontend. Every technology was chosen for a specific reason, not just familiarity.
 
 ---
 
@@ -311,12 +312,19 @@ HRChat is built entirely in Python on the backend, with each technology chosen f
 
 <a href="#table-of-contents">🔝 Back to Top</a>
 
-| Technology | Role |
-|---|---|
-| React 19 + Vite 6 | SPA — single `index.html`, `src/` component tree |
-| Pure CSS (`App.css`) | All styles via CSS custom properties — no component library |
-| Native `fetch` API | HTTP client via `lib/api.js` — no Axios |
-| `useState` / `useEffect` / `useRef` | Chat state, history loading, auto-scroll |
+| Package / Technology | Version | Role |
+|---|---|---|
+| `react` | 19.0.0 | UI framework — component tree, state management, hooks |
+| `react-dom` | 19.0.0 | Renders React component tree into the browser DOM |
+| `vite` | 6.0.0 | Dev server + production build tool — replaces Create React App |
+| `@vitejs/plugin-react` | 4.3.4 | Enables JSX transform and fast HMR (Hot Module Replacement) in Vite |
+| Pure CSS (`App.css`) | — | All styling via CSS custom properties (`:root` variables) — no Tailwind, no Shadcn |
+| Native `fetch` API | — | All HTTP calls to FastAPI backend — no Axios dependency |
+| `useState` / `useEffect` / `useRef` | — | Chat state, persistent history loading, auto-scroll to latest message |
+
+**Why Vite over Create React App?** Vite uses native ES modules during development — cold starts are near-instant and HMR is file-level. CRA bundles the entire app on every change. For a project this size, Vite is the correct modern choice.
+
+**Why no UI component library?** The design is fully custom to the Umbrella Corp theme — dark sidebar, branded colour palette, role badge colours. Importing Shadcn or Tailwind would add overhead without adding value here.
 
 ---
 
@@ -381,13 +389,23 @@ HRChat/
 │   │       └── checkpoints.sqlite  # LangGraph memory (auto-created)
 │   └── main.py                     # FastAPI app — all endpoints live here
 │
-├── frontend/                       # Next.js / React (planned)
-│   ├── app/
-│   ├── components/
-│   │   ├── chat/                   # ChatWindow, MessageBubble
-│   │   └── ui/                     # Buttons, Inputs, Cards (Shadcn/UI)
-│   ├── hooks/                      # useChat, useLangGraphStreaming
-│   └── lib/                        # Axios / Fetch API client
+├── frontend/                       # Vite + React 19 SPA
+│   ├── index.html                  # Vite entry point — mounts <div id="root">
+│   ├── package.json                # React 19, Vite 6, @vitejs/plugin-react
+│   └── src/
+│       ├── main.jsx                # ReactDOM.createRoot — renders <App /> in StrictMode
+│       ├── App.jsx                 # Auth gate — Login or ChatWindow based on user state
+│       ├── App.css                 # All styles — CSS variables, layout, components
+│       ├── components/
+│       │   ├── auth/
+│       │   │   └── Login.jsx       # Login form — calls loginUser() from api.js
+│       │   ├── chat/
+│       │   │   ├── ChatWindow.jsx  # Main shell — sidebar, chat tab, audit log tab
+│       │   │   └── EmployeeCard.jsx # Structured card for employee profile responses
+│       │   └── ui/                 # Reserved for future shared UI components
+│       ├── hooks/                  # Reserved for custom hooks (e.g. useChat)
+│       └── lib/
+│           └── api.js              # All fetch calls — loginUser, sendChatMessage, registerUser
 │
 ├── data/
 │   ├── raw/
@@ -1704,23 +1722,6 @@ JWT is not a silver bullet. These limitations would remain even after adding JWT
 <a href="#table-of-contents">🔝 Back to Top</a>
 
 The frontend is a **Vite + React 19** single-page application styled with pure CSS — no Tailwind, no UI component library. It communicates directly with the FastAPI backend via `fetch` calls centralised in a single `api.js` module.
-
----
-
-<a id="frontend-tech-stack"></a>
-### Tech Stack
-
-<a href="#table-of-contents">🔝 Back to Top</a>
-
-| Technology | Version | Role |
-|---|---|---|
-| **React** | 19.0.0 | UI framework — component tree, state, hooks |
-| **Vite** | 6.0.0 | Dev server + build tool — replaces Create React App |
-| **`@vitejs/plugin-react`** | 4.3.4 | Enables JSX transform and fast HMR in Vite |
-| **Pure CSS** | — | All styling via `App.css` with CSS custom properties — no Tailwind or Shadcn |
-| **Native `fetch` API** | — | All HTTP calls — no Axios dependency |
-
-> **Why Vite over Create React App?** Vite uses native ES modules during development — cold starts are near-instant and HMR is file-level. CRA bundles the entire app on every change. For a project this size, Vite is the correct choice.
 
 ---
 
