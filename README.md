@@ -1,6 +1,6 @@
 # HRChat_LLM — Context-Aware HR Chatbot with RBAC
 
-> A multi-user HR assistant powered by **FastAPI**, **LangGraph**, and **Hybrid AI** (SQL + Vector Search).  
+> A multi-user HR assistant powered by **FastAPI**, **LangGraph**, and **Hybrid AI** (SQL + Vector Search).
 > Every user gets a personalised, role-restricted response. No two users see the same data.
 
 ---
@@ -45,6 +45,15 @@
 - [Current Limitations](#current-limitations)
 - [Future Improvements](#future-improvements)
 - [Why JWT Authentication Matters](#why-jwt-authentication-matters)
+- [Frontend](#frontend)
+  - [Tech Stack](#frontend-tech-stack)
+  - [Folder Structure](#frontend-folder-structure)
+  - [Component Architecture](#component-architecture)
+  - [File Breakdown](#file-breakdown)
+  - [API Layer — api.js](#api-layer--apijs)
+  - [State Flow](#state-flow)
+  - [UI Design System](#ui-design-system)
+  - [Running the Frontend](#running-the-frontend)
 
 ---
 
@@ -285,16 +294,16 @@ HRChat is built entirely in Python on the backend, with each technology chosen f
 
 ---
 
-### 🖥️ Frontend *(Planned)*
+### 🖥️ Frontend
 
 <a href="#table-of-contents">🔝 Back to Top</a>
 
 | Technology | Role |
 |---|---|
-| Next.js 15+ | React framework with App Router for the chat UI |
-| Shadcn/UI | Component library — buttons, inputs, cards, chat bubbles |
-| Axios / Fetch API | HTTP client consuming the FastAPI backend |
-| `useChat` hook | Custom hook for managing chat state and streaming |
+| React 19 + Vite 6 | SPA — single `index.html`, `src/` component tree |
+| Pure CSS (`App.css`) | All styles via CSS custom properties — no component library |
+| Native `fetch` API | HTTP client via `lib/api.js` — no Axios |
+| `useState` / `useEffect` / `useRef` | Chat state, history loading, auto-scroll |
 
 ---
 
@@ -1592,6 +1601,483 @@ JWT is not a silver bullet. These limitations would remain even after adding JWT
 - **RBAC enforcement** — JWT only verifies identity. `sql_tool.py` still needs to enforce what each role can see — JWT does not replace this
 
 > 🔐 **Summary:** JWT does not change *what* users can access — `sql_tool.py` controls that. JWT changes *whether we can trust who they claim to be*. Both layers are necessary for a fully secure system.
+
+---
+
+## Frontend
+
+<a href="#table-of-contents">🔝 Back to Top</a>
+
+The frontend is a **Vite + React 19** single-page application styled with pure CSS — no Tailwind, no UI component library. It communicates directly with the FastAPI backend via `fetch` calls centralised in a single `api.js` module.
+
+---
+
+<a id="frontend-tech-stack"></a>
+### Tech Stack
+
+<a href="#table-of-contents">🔝 Back to Top</a>
+
+| Technology | Version | Role |
+|---|---|---|
+| **React** | 19.0.0 | UI framework — component tree, state, hooks |
+| **Vite** | 6.0.0 | Dev server + build tool — replaces Create React App |
+| **`@vitejs/plugin-react`** | 4.3.4 | Enables JSX transform and fast HMR in Vite |
+| **Pure CSS** | — | All styling via `App.css` with CSS custom properties — no Tailwind or Shadcn |
+| **Native `fetch` API** | — | All HTTP calls — no Axios dependency |
+
+> **Why Vite over Create React App?** Vite uses native ES modules during development — cold starts are near-instant and HMR is file-level. CRA bundles the entire app on every change. For a project this size, Vite is the correct choice.
+
+---
+
+<a id="frontend-folder-structure"></a>
+### Folder Structure
+
+<a href="#table-of-contents">🔝 Back to Top</a>
+
+```
+frontend/
+├── index.html                  # Vite entry point — mounts <div id="root">
+├── package.json                # Dependencies: React 19, Vite 6
+├── src/
+│   ├── main.jsx                # ReactDOM.createRoot — renders <App /> in StrictMode
+│   ├── App.jsx                 # Root component — auth gate (Login vs ChatWindow)
+│   ├── App.css                 # Global styles — CSS variables, layout, all components
+│   ├── components/
+│   │   ├── auth/
+│   │   │   └── Login.jsx       # Login form — calls loginUser() from api.js
+│   │   ├── chat/
+│   │   │   ├── ChatWindow.jsx  # Main app shell — sidebar, chat, audit log tabs
+│   │   │   └── EmployeeCard.jsx # Structured card rendered for employee profile responses
+│   │   └── ui/                 # (empty — reserved for future shared UI components)
+│   ├── hooks/                  # (empty — reserved for custom hooks e.g. useChat)
+│   └── lib/
+│       └── api.js              # Single API module — loginUser, sendChatMessage, registerUser
+```
+
+---
+
+<a id="component-architecture"></a>
+### Component Architecture
+
+<a href="#table-of-contents">🔝 Back to Top</a>
+
+```
+<App>
+  │
+  ├── user === null  →  <Login onLoginSuccess={handleLogin} />
+  │                         │
+  │                         └── calls loginUser() from api.js
+  │                             on success → sets user state in App
+  │
+  └── user !== null  →  <ChatWindow user={user} onLogout={handleLogout} />
+                              │
+                              ├── Sidebar
+                              │     ├── Logo + branding (☂️ Umbrella HR)
+                              │     ├── User avatar + role badge
+                              │     ├── Nav tabs: 💬 Chat  |  📜 Audit Logs
+                              │     └── Sign Out button → calls onLogout → clears user state
+                              │
+                              ├── Tab: Chat
+                              │     ├── messages.map() → message bubbles
+                              │     │     ├── user bubble  (blue, right-aligned)
+                              │     │     ├── assistant bubble  (white, left-aligned)
+                              │     │     └── <EmployeeCard />  (when response is JSON profile)
+                              │     ├── Typing indicator  ("Searching encrypted database...")
+                              │     └── Input form + Send button
+                              │
+                              └── Tab: Audit Logs
+                                    └── Fetches /audit/logs/{user_id}
+                                        → renders table with Q&A, source badge,
+                                          node_path, security status, timestamp
+```
+
+---
+
+<a id="file-breakdown"></a>
+### File Breakdown
+
+<a href="#table-of-contents">🔝 Back to Top</a>
+
+#### `index.html`
+
+Standard Vite entry point. Contains only `<div id="root">` and a `<script type="module">` pointing to `src/main.jsx`. No stylesheets, no meta tags added yet.
+
+---
+
+#### `main.jsx`
+
+Bootstraps the React app using `ReactDOM.createRoot` (React 18+ API, used here with React 19). Wraps the entire app in `React.StrictMode` — surfaces side-effect bugs and deprecated API usage during development.
+
+```jsx
+ReactDOM.createRoot(document.getElementById('root')).render(
+  <React.StrictMode>
+    <App />
+  </React.StrictMode>
+);
+```
+
+---
+
+#### `App.jsx` — The Auth Gate
+
+Holds the single piece of global state: `user`. This is `null` on load and gets set when login succeeds.
+
+```jsx
+const [user, setUser] = useState(null);
+
+// null → show Login
+// object → show ChatWindow
+return (
+  <div className="app-container">
+    {!user ? (
+      <Login onLoginSuccess={handleLogin} />
+    ) : (
+      <ChatWindow user={user} onLogout={handleLogout} />
+    )}
+  </div>
+);
+```
+
+`handleLogout` simply sets `user` back to `null`, which re-renders the login screen — no router needed.
+
+---
+
+#### `Login.jsx` — Authentication Form
+
+Controlled form with two inputs (`username`, `password`). On submit, calls `loginUser()` from `api.js`. On success, calls `onLoginSuccess(data)` which sets the `user` state in `App.jsx`. On failure, displays an inline error message.
+
+**Key detail:** `onLoginSuccess` receives the full response object `{ user_id, role, status }` from the backend — this object becomes the `user` prop passed into `ChatWindow`.
+
+```jsx
+const data = await loginUser(username, password);
+onLoginSuccess(data);  // { user_id: "user_4821", role: "employee", status: "success" }
+```
+
+---
+
+#### `ChatWindow.jsx` — The Main Application Shell
+
+The most complex component. Manages four pieces of state:
+
+| State | Type | Purpose |
+|---|---|---|
+| `messages` | Array | Chat history — both user and assistant messages |
+| `auditLogs` | Array | Fetched from `/audit/logs/{user_id}` when audit tab is active |
+| `input` | String | Controlled input field value |
+| `isTyping` | Boolean | Shows typing indicator, disables input while waiting for response |
+| `activeTab` | String | `'chat'` or `'audit'` — controls which view renders |
+
+**Three `useEffect` hooks:**
+
+```jsx
+// 1. Load chat history on mount (persistent memory)
+useEffect(() => {
+  fetch(`/chat/history/${user.user_id}`) → setMessages(data.history)
+}, [user.user_id]);
+
+// 2. Load audit logs when audit tab is opened
+useEffect(() => {
+  if (activeTab === 'audit')
+    fetch(`/audit/logs/${user.user_id}`) → setAuditLogs(data.logs)
+}, [activeTab, user.user_id]);
+
+// 3. Auto-scroll to latest message
+useEffect(() => {
+  scrollRef.current?.scrollIntoView({ behavior: "smooth" })
+}, [messages, isTyping]);
+```
+
+**Smart message rendering** — detects if an assistant response is a JSON employee profile and renders `<EmployeeCard />` instead of a plain text bubble:
+
+```jsx
+const isEmployeeCard = msg.role === 'assistant' &&
+  (typeof msg.content === 'object' ||
+  (typeof msg.content === 'string' && msg.content.includes('"user_id"')));
+
+// Renders either:
+<EmployeeCard data={msg.content} />   // structured profile card
+// or:
+<div className="message-bubble">{msg.content}</div>  // plain text bubble
+```
+
+**Audit log table columns:** Exchange (Q&A preview), Origin (`SQL` / `DOC` badge), Execution Path (`node_path` in monospace), Security Status (coloured badge), Timestamp (localised).
+
+---
+
+#### `EmployeeCard.jsx` — Structured Profile Response
+
+Rendered instead of a text bubble when the backend returns employee profile data. Safely parses the response whether it arrives as a JSON object or a JSON string (handles LLM inconsistency):
+
+```jsx
+const profile = typeof data === 'string' ? JSON.parse(data) : data;
+```
+
+**Displays:**
+- Initials avatar (`first_name[0] + last_name[0]`)
+- Name + position
+- Location, department, email
+- Skills — split by comma, each rendered as a `<span className="skill-tag">`
+- Salary — **only rendered if present** in the response (`profile.salary &&`) — this means RBAC is respected automatically: employees won't see this field because the backend never sends it
+
+```jsx
+{profile.salary && (
+  <div className="salary-info">
+    💰 Annual Salary: ${profile.salary.toLocaleString()}
+  </div>
+)}
+```
+
+---
+
+<a id="api-layer--apijs"></a>
+### API Layer — `api.js`
+
+<a href="#table-of-contents">🔝 Back to Top</a>
+
+Single source of truth for all backend communication. All functions are named exports — no default export — so they are imported individually where needed.
+
+```
+BASE_URL = "http://localhost:8000"
+```
+
+| Function | Endpoint | Method | Used In | Returns |
+|---|---|---|---|---|
+| `loginUser(username, password)` | `/login` | POST | `Login.jsx` | `{ user_id, role, status }` |
+| `sendChatMessage(userId, message)` | `/chat` | POST | `api.js` (defined but `ChatWindow` uses fetch directly) | `{ user_id, answer, source }` |
+| `registerUser(userData)` | `/register` | POST | Not yet wired to a UI component | `{ status, user_id, role }` |
+
+> **Note:** `ChatWindow.jsx` currently calls `fetch` directly rather than using `sendChatMessage()` from `api.js`. This is a minor inconsistency — consolidating all fetch calls through `api.js` would be a clean improvement.
+
+---
+
+<a id="state-flow"></a>
+### State Flow
+
+<a href="#table-of-contents">🔝 Back to Top</a>
+
+```
+App.jsx
+  user: null
+      │
+      │  Login.jsx calls loginUser()
+      │  Backend returns { user_id, role, status }
+      │  handleLogin(data) → user = { user_id, role, status }
+      ▼
+App.jsx
+  user: { user_id: "user_4821", role: "employee", status: "success" }
+      │
+      │  Passed as props into ChatWindow
+      ▼
+ChatWindow.jsx
+  props.user.user_id  → used in fetch URLs (/chat, /audit/logs)
+  props.user.role     → shown in role badge, sent in chat POST body
+  props.user.first_name → shown in avatar and welcome message
+      │
+      │  User types message → handleSendMessage()
+      │  POST /chat { user_id, message, role }
+      │  Response { answer, source } → appended to messages[]
+      ▼
+messages[] re-renders
+  → plain text bubble  OR  <EmployeeCard /> depending on content type
+```
+
+---
+
+<a id="ui-design-system"></a>
+### UI Design System
+
+<a href="#table-of-contents">🔝 Back to Top</a>
+
+All styles live in a single `App.css` file using CSS custom properties defined in `:root`:
+
+```css
+:root {
+  --bg-dark:       #121417;   /* Sidebar background */
+  --bg-light:      #e5e9ed;   /* Chat area background */
+  --umbrella-red:  #237cc5;   /* Primary accent (blue, named for theming) */
+  --border-color:  #7c97b1;   /* Input borders, table lines */
+  --text-dark:     #2d3436;   /* Primary text */
+  --text-muted:    #636e72;   /* Secondary text, disclaimers */
+}
+```
+
+**Layout:** Two-column flexbox — fixed-width sidebar (`min 360px, max 420px`) + fluid chat area (`flex: 1`).
+
+**Role badges** — colour-coded by role value:
+
+```css
+.role-badge.hr       { background: #ffd700; color: #000; }  /* Gold */
+.role-badge.employee { background: #00b894; color: #fff; }  /* Green */
+```
+
+**Source badges in audit log** — colour-coded by data source:
+
+```
+SQL origin  →  blue  (#0288d1)  —  "🔒 DB Record"
+DOC origin  →  purple (#7b1fa2) —  "📄 Doc Search"
+```
+
+**EmployeeCard** — rendered outside the standard message bubble with a red left border (`border-left: 8px solid #d63031`), heavy drop shadow, and a `slideIn` CSS animation on mount.
+
+---
+
+<a id="running-the-frontend"></a>
+### Running the Frontend
+
+<a href="#table-of-contents">🔝 Back to Top</a>
+
+> ⚠️ **Important:** The frontend runs in the **Node.js ecosystem** — completely separate from Python/pip. If you have only used Python so far, you will need to install Node.js before anything else. All frontend commands must also be run from **inside the `frontend/` directory**, not from the project root.
+
+---
+
+#### Prerequisites — Install Node.js and npm
+
+The frontend requires **Node.js** (the JavaScript runtime) and **npm** (Node Package Manager). These are equivalent to Python and pip — but for JavaScript.
+
+**Check if you already have them:**
+
+```bash
+node -v   # should print v18.0.0 or higher
+npm -v    # should print 8.0.0 or higher
+```
+
+**If not installed:**
+
+Go to [https://nodejs.org](https://nodejs.org) and download the **LTS (Long Term Support)** version. Installing Node.js also installs npm automatically. Vite and React do **not** need to be installed globally — they are installed as project dependencies in the next step.
+
+---
+
+#### If Starting the Frontend from Scratch
+
+If the `frontend/` folder has the source files but no `node_modules/` yet (i.e. you just cloned the repo), follow these steps:
+
+**Step 1 — Navigate into the frontend directory:**
+
+```bash
+cd frontend
+```
+
+> Always `cd frontend` first. Every npm command reads `package.json` and resolves paths relative to the directory you are in. Running npm from the project root will fail because there is no `package.json` there.
+
+**Step 2 — Verify `package.json` is correct:**
+
+The `package.json` in `frontend/` should look exactly like this. If it doesn't, replace it:
+
+```json
+{
+  "name": "frontend",
+  "version": "1.0.0",
+  "description": "Umbrella Corp HR Portal Frontend",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@vitejs/plugin-react": "^4.3.4",
+    "vite": "^6.0.0"
+  }
+}
+```
+
+Key things to check:
+- `"type": "module"` must be present — this tells Node.js to treat `.js` files as ES modules (required for Vite)
+- `vite` and `@vitejs/plugin-react` are in `devDependencies` — they are build tools, not shipped to production
+- React and React DOM are in `dependencies` — they are shipped
+
+**Step 3 — Install all dependencies:**
+
+```bash
+npm install
+```
+
+This reads `package.json` and downloads React 19, Vite 6, and `@vitejs/plugin-react` into `frontend/node_modules/`. This folder is created automatically — never commit it to Git (it is listed in `.gitignore`).
+
+You only need to run `npm install` once after cloning, or again whenever `package.json` changes.
+
+---
+
+#### Running the Dev Server
+
+```bash
+# Make sure you are inside frontend/
+cd frontend
+npm run dev
+```
+
+Vite will serve the app at **`http://localhost:5173`** by default. You will see:
+
+```
+  VITE v6.x.x  ready in Xms
+
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: http://192.168.x.x:5173/
+```
+
+> ⚠️ Make sure the FastAPI backend is already running on `http://localhost:8000` before opening the frontend — all API calls in `api.js` are hardcoded to that address.
+
+---
+
+#### Build for Production
+
+```bash
+# Must be inside frontend/
+cd frontend
+npm run build
+# Output goes to frontend/dist/
+```
+
+---
+
+#### Full Stack — Running Both at Once (Recommended Workflow)
+
+Open **two separate terminal windows**:
+
+```bash
+# Terminal 1 — Backend
+# Run from project root (HRChat/)
+uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
+```
+
+```bash
+# Terminal 2 — Frontend
+# Must cd into frontend/ first
+cd frontend
+npm run dev
+```
+
+Then open **`http://localhost:5173`** in your browser.
+
+---
+
+#### Quick Reference — Where to Run Each Command
+
+| Command | Directory | Why |
+|---|---|---|
+| `uvicorn backend.main:app ...` | Project root `HRChat/` | Python resolves `backend.main` as a package path from root |
+| `npm install` | `HRChat/frontend/` | Reads `frontend/package.json`, creates `frontend/node_modules/` |
+| `npm run dev` | `HRChat/frontend/` | Vite resolves `src/`, `index.html` relative to `frontend/` |
+| `npm run build` | `HRChat/frontend/` | Output written to `frontend/dist/` |
+| `python data/scripts/ingest.py` | Project root `HRChat/` | Resolves `data/raw/` and `.env` relative to root |
+| `python data/scripts/seed_employees.py` | Project root `HRChat/` | Imports `backend.app.db.connection` as a Python module |
+
+---
+
+#### Common Frontend Issues
+
+| Problem | Likely Cause | Fix |
+|---|---|---|
+| `npm: command not found` | Node.js not installed | Download LTS from [nodejs.org](https://nodejs.org) |
+| `Cannot find module 'vite'` | `npm install` not run yet | Run `npm install` from inside `frontend/` |
+| `ERR_MODULE_NOT_FOUND` | Running npm from wrong directory | `cd frontend` first, then retry |
+| `"type": "module" missing` | `package.json` missing module type | Add `"type": "module"` to `package.json` |
+| Blank page at `localhost:5173` | Backend not running | Start uvicorn first, then refresh |
+| `CORS error` in browser console | Backend not allowing frontend origin | Add CORS middleware to `main.py` for `http://localhost:5173` |
 
 ---
 
