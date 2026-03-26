@@ -22,7 +22,6 @@
   - [PDF Ingestion](#-pdf-ingestion)
   - [Security & Auth](#-security--auth)
   - [Data & Dev Tools](#-data--dev-tools)
-  - [Frontend (Planned)](#-frontend-planned)
 - [Folder Structure](#folder-structure)
 - [Backend Deep Dive](#backend-deep-dive)
   - [main.py — The API Gateway](#mainpy--the-api-gateway)
