@@ -39,6 +39,20 @@
 - [Database Schema](#database-schema)
 - [Environment Variables](#environment-variables)
 - [Setup and Running Locally](#setup-and-running-locally)
+  - [Prerequisites](#prerequisites)
+  - [Step 1 — Clone the Repository](#step-1--clone-the-repository)
+  - [Step 2 — Create a Python Virtual Environment](#step-2--create-a-python-virtual-environment)
+  - [Step 3 — Install Backend Dependencies](#step-3--install-backend-dependencies)
+  - [Step 4 — Install Frontend Dependencies](#step-4--install-frontend-dependencies)
+  - [Step 5 — Configure Environment Variables](#step-5--configure-environment-variables)
+  - [Step 6 — Ingest Policy Documents into Pinecone](#step-6--ingest-policy-documents-into-pinecone)
+  - [Step 7 — Seed the Database](#step-7--seed-the-database)
+  - [Step 8 — Start the Backend](#step-8--start-the-backend)
+  - [Step 9 — Start the Frontend](#step-9--start-the-frontend)
+  - [Step 10 — Open the App](#step-10--open-the-app)
+  - [Full Setup Summary](#full-setup-summary)
+  - [Folder State After Full Setup](#folder-state-after-full-setup)
+  - [Common Issues](#common-issues)
 - [File Responsibilities](#file-responsibilities)
 - [Security Design](#security-design)
 - [Current Limitations](#current-limitations)
@@ -1102,19 +1116,34 @@ PINECONE_INDEX_NAME=hrchat-policies
 
 <a href="#table-of-contents">🔝 Back to Top</a>
 
+This section is the **single complete guide** to installing and running both the backend and frontend from scratch. Follow every step in order.
+
+---
+
 ### Prerequisites
 
 <a href="#table-of-contents">🔝 Back to Top</a>
 
-Make sure the following are installed before you begin:
+You need two separate ecosystems installed — one for Python (backend) and one for Node.js (frontend).
 
-| Requirement | Version | Notes |
+**Backend requirements:**
+
+| Requirement | Version | How to check |
 |---|---|---|
-| Python | 3.10+ | Check with `python --version` |
-| pip | Latest | Check with `pip --version` |
-| Git | Any | For cloning the repo |
+| Python | 3.10+ | `python --version` |
+| pip | Latest | `pip --version` |
+| Git | Any | `git --version` |
 | OpenAI API Key | — | Required for LLM + embeddings |
 | Pinecone Account | — | Required for vector search |
+
+**Frontend requirements:**
+
+| Requirement | Version | How to check |
+|---|---|---|
+| Node.js | 18+ | `node -v` |
+| npm | 8+ | `npm -v` |
+
+> If Node.js is not installed, go to [https://nodejs.org](https://nodejs.org) and download the **LTS** version. Installing Node.js also installs npm automatically.
 
 ---
 
@@ -1127,9 +1156,11 @@ git clone https://github.com/abhisakh/HRChat.git
 cd HRChat
 ```
 
+All backend commands in the steps below must be run from this project root (`HRChat/`).
+
 ---
 
-### Step 2 — Create a Virtual Environment
+### Step 2 — Create a Python Virtual Environment
 
 <a href="#table-of-contents">🔝 Back to Top</a>
 
@@ -1137,53 +1168,81 @@ cd HRChat
 # Create the environment
 python -m venv venv
 
-# Activate it — macOS / Linux
+# Activate — macOS / Linux
 source venv/bin/activate
 
-# Activate it — Windows
-venv\Scripts\activate
+# Activate — Windows
+venv\Scriptsctivate
 ```
 
-You should see `(venv)` at the start of your terminal prompt once activated.
+You should see `(venv)` at the start of your terminal prompt once activated. Keep this terminal open — all Python commands run inside it.
 
 ---
 
-### Step 3 — Install Dependencies
+### Step 3 — Install Backend Dependencies
 
 <a href="#table-of-contents">🔝 Back to Top</a>
 
 ```bash
+# Run from project root with venv activated
 pip install -r requirements.txt
 ```
 
-Key packages that will be installed:
+Key packages installed:
 
 | Package | Purpose |
 |---|---|
-| `fastapi` | API framework |
-| `uvicorn` | ASGI server to run FastAPI |
-| `langgraph` | Agent orchestration (StateGraph) |
+| `fastapi` + `uvicorn` | API framework + ASGI server |
+| `langgraph` | LangGraph agent orchestration |
 | `langchain-openai` | LLM + embeddings via OpenAI |
 | `langchain-pinecone` | Pinecone vector store integration |
-| `pinecone` | Pinecone client |
-| `pypdf` | PDF text extraction |
-| `faker` | Fake employee data generation |
+| `pypdf` | PDF text extraction for ingestion |
+| `faker` | Fake employee data for seeding |
 | `python-dotenv` | `.env` file loading |
 | `pydantic` | Request/response validation |
 
 ---
 
-### Step 4 — Configure Environment Variables
+### Step 4 — Install Frontend Dependencies
 
 <a href="#table-of-contents">🔝 Back to Top</a>
 
-Create a `.env` file in the project root:
+> ⚠️ Frontend commands **must** be run from inside the `frontend/` directory — not the project root. Vite resolves all paths relative to where you run the command.
 
 ```bash
+# Navigate into the frontend directory
+cd frontend
+
+# Install React 19, Vite 6, and @vitejs/plugin-react
+npm install
+```
+
+This creates `frontend/node_modules/` — never commit this folder (it is in `.gitignore`). You only need to run `npm install` once after cloning, or again if `package.json` changes.
+
+Expected output:
+
+```
+added 243 packages in 12s
+```
+
+After `npm install`, go back to the project root for the remaining steps:
+
+```bash
+cd ..
+```
+
+---
+
+### Step 5 — Configure Environment Variables
+
+<a href="#table-of-contents">🔝 Back to Top</a>
+
+```bash
+# Run from project root
 cp .env.example .env
 ```
 
-Then open `.env` and fill in your keys:
+Open `.env` and fill in your API keys:
 
 ```env
 # OpenAI — used for LLM responses and text embeddings
@@ -1198,11 +1257,11 @@ PINECONE_INDEX_NAME=hrchat-policies
 
 ---
 
-### Step 5 — Ingest Policy Documents into Pinecone
+### Step 6 — Ingest Policy Documents into Pinecone
 
 <a href="#table-of-contents">🔝 Back to Top</a>
 
-Drop your HR policy PDF files into `data/raw/`, then run:
+Drop your HR policy PDF files into `data/raw/`, then run from the project root:
 
 ```bash
 python data/scripts/ingest.py
@@ -1215,17 +1274,16 @@ Expected output:
 ✅ Indexed umbrella_corp_policies.pdf
 ```
 
-Already-indexed, unchanged files are skipped automatically on subsequent runs thanks to the MD5 manifest. To re-index a file, delete its entry from `data/scripts/ingest_manifest.json`.
+Already-indexed unchanged files are skipped on re-runs via MD5 manifest. To force re-index, delete the entry from `data/scripts/ingest_manifest.json`.
 
 ---
 
-### Step 6 — Seed the Database
+### Step 7 — Seed the Database
 
 <a href="#table-of-contents">🔝 Back to Top</a>
 
-Populate `hr_database.db` with employee records and login credentials:
-
 ```bash
+# Run from project root
 python data/scripts/seed_employees.py
 ```
 
@@ -1245,83 +1303,111 @@ Seeded user: james (ID: user_3047) with role: hr
 
 > All seeded users have the default password `password123`.
 
-To add a specific test user interactively:
-
-```bash
-python data/scripts/seed_employees.py
-# Seed manually? (yes/no, default: no): yes
-# Number of employees to seed (default: 5): 1
-# --- Enter employee details ---
-# First Name: John
-# Last Name: Doe
-# Username: john_doe
-# ...
-```
-
 ---
 
-### Step 7 — Start the Backend with Uvicorn
+### Step 8 — Start the Backend
 
 <a href="#table-of-contents">🔝 Back to Top</a>
 
 ```bash
+# Run from project root
 uvicorn backend.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
 | Flag | What it does |
 |---|---|
 | `backend.main:app` | Points Uvicorn to the `app` object inside `backend/main.py` |
-| `--reload` | Auto-restarts the server on code changes (development only, remove in production) |
-| `--host 0.0.0.0` | Makes the server accessible on your local network, not just `localhost` |
+| `--reload` | Auto-restarts on code changes (dev only — remove in production) |
+| `--host 0.0.0.0` | Accessible on your local network, not just `localhost` |
 | `--port 8000` | Serves on port 8000 |
 
-Expected startup output:
+Expected output:
 
 ```
 Initializing HR Databases...
 INFO:     Uvicorn running on http://0.0.0.0:8000 (Press CTRL+C to quit)
-INFO:     Started reloader process
 INFO:     Application startup complete.
 ```
 
-The two SQLite files are auto-created on first startup:
+Two SQLite files are auto-created on first startup:
 - `hr_database.db` — created by `init_db()` via `connection.py`
-- `checkpoints.sqlite` — created by LangGraph `SqliteSaver` on the first `/chat` call
+- `checkpoints.sqlite` — created by LangGraph `SqliteSaver` on first `/chat` call
+
+**Leave this terminal running.** Open a new terminal for the next step.
 
 ---
 
-### Step 8 — Verify Everything Is Running
+### Step 9 — Start the Frontend
 
 <a href="#table-of-contents">🔝 Back to Top</a>
 
-**Health check:**
+Open a **new terminal window**, navigate into the `frontend/` directory, then start Vite:
+
+```bash
+# Open a NEW terminal — do NOT stop the backend
+cd HRChat/frontend
+npm run dev
+```
+
+Expected output:
+
+```
+  VITE v6.x.x  ready in Xms
+
+  ➜  Local:   http://localhost:5173/
+  ➜  Network: http://192.168.x.x:5173/
+```
+
+> ⚠️ The backend must already be running on port 8000 before you open the frontend. All API calls in `api.js` point to `http://localhost:8000`.
+
+---
+
+### Step 10 — Open the App
+
+<a href="#table-of-contents">🔝 Back to Top</a>
+
+Open your browser and go to:
+
+```
+http://localhost:5173
+```
+
+You should see the **Umbrella Corp HR Login** screen. Log in with any seeded username and the password `password123`.
+
+To verify the backend is also healthy:
 
 ```bash
 curl http://localhost:8000/health
 # {"status":"online"}
 ```
 
-**Login:**
+Full API docs available at: `http://localhost:8000/docs`
 
-```bash
-curl -X POST http://localhost:8000/login \
-  -H "Content-Type: application/json" \
-  -d '{"username": "alice", "password": "password123"}'
+---
 
-# {"user_id": "user_4821", "role": "employee", "status": "success"}
+### Full Setup Summary
+
+<a href="#table-of-contents">🔝 Back to Top</a>
+
 ```
+Terminal 1 (project root, venv activated)        Terminal 2 (frontend/ directory)
+─────────────────────────────────────────        ────────────────────────────────
+git clone ...  &&  cd HRChat
+python -m venv venv  &&  source venv/activate
+pip install -r requirements.txt
+                                                 cd HRChat/frontend
+                                                 npm install
+                                                 cd ..  (back to root)
+cp .env.example .env  →  fill in API keys
+python data/scripts/ingest.py
+python data/scripts/seed_employees.py
+uvicorn backend.main:app --reload \              npm run dev
+  --host 0.0.0.0 --port 8000
+  ↑ keep running                                  ↑ keep running
 
-**Chat:**
-
-```bash
-curl -X POST http://localhost:8000/chat \
-  -H "Content-Type: application/json" \
-  -d '{"user_id": "user_4821", "message": "How many vacation days do I have?"}'
-
-# {"user_id": "user_4821", "answer": "You currently have 15 vacation days available.", "source": "sql"}
+Backend: http://localhost:8000                   Frontend: http://localhost:5173
+API docs: http://localhost:8000/docs
 ```
-
-Or open **`http://localhost:8000/docs`** in your browser for the full interactive Swagger UI.
 
 ---
 
@@ -1329,17 +1415,15 @@ Or open **`http://localhost:8000/docs`** in your browser for the full interactiv
 
 <a href="#table-of-contents">🔝 Back to Top</a>
 
-After completing all steps, your `backend/app/db/` folder will contain:
-
 ```
-db/
-├── schemas/
-│   ├── employees.sql
-│   ├── auth.sql
-│   └── audit_logs.sql
-├── connection.py
-├── hr_database.db        ← created by init_db() on first startup
-└── checkpoints.sqlite    ← created by LangGraph SqliteSaver on first /chat
+HRChat/
+├── backend/app/db/
+│   ├── hr_database.db          ← created by init_db() on first backend startup
+│   └── checkpoints.sqlite      ← created by LangGraph on first /chat call
+├── frontend/
+│   └── node_modules/           ← created by npm install (do not commit)
+└── data/scripts/
+    └── ingest_manifest.json    ← updated by ingest.py after each PDF is indexed
 ```
 
 ---
@@ -1348,14 +1432,26 @@ db/
 
 <a href="#table-of-contents">🔝 Back to Top</a>
 
+**Backend:**
+
 | Problem | Likely Cause | Fix |
 |---|---|---|
-| `ModuleNotFoundError: backend` | Running from wrong directory | Run all commands from the project root (`HRChat/`) |
-| `sqlite3.OperationalError: no such table` | DB not initialised | Run `seed_employees.py` or start the server (calls `init_db()` on startup) |
-| `pinecone.exceptions.NotFoundException` | Index name mismatch | Check `PINECONE_INDEX_NAME` in `.env` matches your Pinecone dashboard |
+| `ModuleNotFoundError: backend` | Running from wrong directory | Run all Python commands from project root (`HRChat/`) |
+| `sqlite3.OperationalError: no such table` | DB not initialised | Run `seed_employees.py` or start the server — `init_db()` runs on startup |
+| `pinecone.exceptions.NotFoundException` | Index name mismatch | Check `PINECONE_INDEX_NAME` in `.env` matches Pinecone dashboard |
 | `openai.AuthenticationError` | Invalid API key | Double-check `OPENAI_API_KEY` in `.env` |
 | `Port 8000 already in use` | Another process on that port | Use `--port 8001` or kill the existing process |
 
+**Frontend:**
+
+| Problem | Likely Cause | Fix |
+|---|---|---|
+| `npm: command not found` | Node.js not installed | Download LTS from [nodejs.org](https://nodejs.org) |
+| `Cannot find module 'vite'` | `npm install` not run yet | Run `npm install` from inside `frontend/` |
+| `ERR_MODULE_NOT_FOUND` | Running npm from wrong directory | `cd frontend` first, then retry |
+| Blank page at `localhost:5173` | Backend not running | Start uvicorn first, then refresh the page |
+| `CORS error` in browser console | Backend not allowing frontend origin | Add CORS middleware to `main.py` for `http://localhost:5173` |
+| Login always fails | Backend not seeded | Run `seed_employees.py` to create test users |
 ---
 
 ## File Responsibilities
