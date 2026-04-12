@@ -90,8 +90,6 @@ Most chatbots handle one or the other. HRChat handles both, automatically routin
 
 ## Why This Project Matters
 
-<a href="#table-of-contents">🔝 Back to Top</a>
-
 ### The Problem
 
 <a href="#table-of-contents">🔝 Back to Top</a>
