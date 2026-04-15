@@ -166,6 +166,74 @@ async def login(request: LoginRequest):
         raise HTTPException(status_code=401, detail="Invalid credentials")
     return {**user, "status": "success"}
 
+# @app.post("/chat", response_model=ChatResponse)
+# async def chat_endpoint(request: ChatRequest):
+#     try:
+#         # 1. Validate User & Role
+#         user_role = get_user_role(request.user_id)
+#         if not user_role:
+#             raise HTTPException(status_code=403, detail="User role not found.")
+
+#         # 2. Context Restoration & Deduplication Logic
+#         # If frontend history is empty (e.g., refresh/re-login), pull from DB
+#         effective_history = request.history
+#         if not effective_history or len(effective_history) == 0:
+#             raw_db_history = get_memory_by_user(request.user_id)
+#             effective_history = [
+#                 ChatMessage(role=m["role"], content=m["content"])
+#                 for m in raw_db_history[-10:] # Last 10 messages for context
+#             ]
+
+#         # 3. Convert to LangChain Format
+#         formatted_messages = []
+#         for msg in effective_history:
+#             if msg.role.lower() in ["user", "human"]:
+#                 formatted_messages.append(HumanMessage(content=msg.content))
+#             else:
+#                 formatted_messages.append(AIMessage(content=msg.content))
+
+#         # Add the current user query
+#         formatted_messages.append(HumanMessage(content=request.message))
+
+#         # 4. State Management & Invocation
+#         # We use a unique thread_id.
+#         # To avoid duplication with LangGraph's internal SqliteSaver:
+#         # We pass the full history into the 'messages' key.
+#         config = {"configurable": {"thread_id": request.user_id, "role": user_role}}
+
+#         # We 'update' the state explicitly to ensure the graph uses our curated list
+#         initial_state = {"messages": formatted_messages}
+
+#         # Invoke the Agent
+#         final_state = hr_agent.invoke(initial_state, config=config)
+
+#         # 5. Safety Check for Missing Data
+#         answer = final_state.get("answer", "I'm sorry, I encountered an error generating a response.")
+#         source = final_state.get("source_used", "unknown")
+#         # Ensure node_path is a list before joining
+#         steps = final_state.get("steps", ["start", "process", "end"])
+#         path_str = " -> ".join(steps) if isinstance(steps, list) else str(steps)
+
+#         # 6. Final Audit & Response
+#         save_to_audit_log(
+#             user_id=request.user_id,
+#             question=request.message,
+#             answer=answer,
+#             source=source,
+#             node_path=path_str
+#         )
+
+#         return ChatResponse(
+#             user_id=request.user_id,
+#             answer=answer,
+#             source=source
+#         )
+
+#     except Exception as e:
+#         # Log the actual error to console for debugging
+#         print(f"--- [CRITICAL ERROR] --- \nType: {type(e).__name__} \nDetail: {e}")
+#         raise HTTPException(status_code=500, detail="Internal Server Error")
+
 @app.post("/chat", response_model=ChatResponse)
 async def chat_endpoint(request: ChatRequest):
     try:
@@ -174,54 +242,32 @@ async def chat_endpoint(request: ChatRequest):
         if not user_role:
             raise HTTPException(status_code=403, detail="User role not found.")
 
-        # 2. Context Restoration & Deduplication Logic
-        # If frontend history is empty (e.g., refresh/re-login), pull from DB
-        effective_history = request.history
-        if not effective_history or len(effective_history) == 0:
-            raw_db_history = get_memory_by_user(request.user_id)
-            effective_history = [
-                ChatMessage(role=m["role"], content=m["content"])
-                for m in raw_db_history[-10:] # Last 10 messages for context
-            ]
-
-        # 3. Convert to LangChain Format
-        formatted_messages = []
-        for msg in effective_history:
-            if msg.role.lower() in ["user", "human"]:
-                formatted_messages.append(HumanMessage(content=msg.content))
-            else:
-                formatted_messages.append(AIMessage(content=msg.content))
-
-        # Add the current user query
-        formatted_messages.append(HumanMessage(content=request.message))
-
-        # 4. State Management & Invocation
-        # We use a unique thread_id.
-        # To avoid duplication with LangGraph's internal SqliteSaver:
-        # We pass the full history into the 'messages' key.
+        # 2. Simplified State Management
+        # LangGraph's SqliteSaver handles history automatically using thread_id.
+        # We ONLY send the latest human message.
         config = {"configurable": {"thread_id": request.user_id, "role": user_role}}
 
-        # We 'update' the state explicitly to ensure the graph uses our curated list
-        initial_state = {"messages": formatted_messages}
+        # We pass ONLY the new message.
+        # The checkpointer will merge this with existing history.
+        new_input = {"messages": [HumanMessage(content=request.message)]}
 
-        # Invoke the Agent
-        final_state = hr_agent.invoke(initial_state, config=config)
+        # 3. Invoke the Agent
+        final_state = hr_agent.invoke(new_input, config=config)
 
-        # 5. Safety Check for Missing Data
-        answer = final_state.get("answer", "I'm sorry, I encountered an error generating a response.")
+        # 4. Extract Response Data
+        answer = final_state.get("answer", "I encountered an error.")
         source = final_state.get("source_used", "unknown")
-        # Ensure node_path is a list before joining
-        steps = final_state.get("steps", ["start", "process", "end"])
+        steps = final_state.get("steps", [])
         path_str = " -> ".join(steps) if isinstance(steps, list) else str(steps)
 
-        # 6. Final Audit & Response
-        save_to_audit_log(
-            user_id=request.user_id,
-            question=request.message,
-            answer=answer,
-            source=source,
-            node_path=path_str
-        )
+        # # 5. Audit Logging
+        # save_to_audit_log(
+        #     user_id=request.user_id,
+        #     question=request.message,
+        #     answer=answer,
+        #     source=source,
+        #     node_path=path_str
+        # )
 
         return ChatResponse(
             user_id=request.user_id,
@@ -230,8 +276,7 @@ async def chat_endpoint(request: ChatRequest):
         )
 
     except Exception as e:
-        # Log the actual error to console for debugging
-        print(f"--- [CRITICAL ERROR] --- \nType: {type(e).__name__} \nDetail: {e}")
+        print(f"--- [ERROR] --- {e}")
         raise HTTPException(status_code=500, detail="Internal Server Error")
 
 @app.get("/chat/history/{user_id}")
