@@ -412,3 +412,176 @@ body, html, #root {
   justify-content: flex-start;
   width: 100%;
 }
+
+/* --- REGISTRATION MODAL STYLES --- */
+
+/* The dark semi-transparent background */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100vw;
+  height: 100vh;
+  background: rgba(0, 0, 0, 0.85); /* Darker backdrop for focus */
+  backdrop-filter: blur(4px);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  padding: 20px;
+}
+
+.registration-modal {
+  background: white;
+  width: 100%;
+  max-width: 800px; /* Wider for the expanded fields */
+  max-height: 90vh;
+  border-radius: 16px;
+  overflow-y: auto;
+  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+  animation: modalPop 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+@keyframes modalPop {
+  from { transform: scale(0.9); opacity: 0; }
+  to { transform: scale(1); opacity: 1; }
+}
+
+.modal-header {
+  padding: 24px 32px;
+  background: var(--bg-dark);
+  color: white;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+
+.modal-header h2 {
+  font-size: 18px;
+  text-transform: uppercase;
+  letter-spacing: 2px;
+  margin: 0;
+}
+
+.close-btn {
+  background: transparent;
+  border: none;
+  color: #b2bec3;
+  font-size: 28px;
+  cursor: pointer;
+  transition: color 0.2s;
+}
+
+.close-btn:hover { color: white; }
+
+/* Form Layout */
+.reg-form { padding: 32px; }
+
+.form-section {
+  margin-bottom: 24px;
+  border-bottom: 1px solid #eee;
+  padding-bottom: 16px;
+}
+
+.form-section h3 {
+  font-size: 13px;
+  color: var(--umbrella-red);
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  margin-bottom: 16px;
+}
+
+.input-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr; /* Two columns */
+  gap: 16px;
+}
+
+/* Individual Form Elements */
+.reg-form input,
+.reg-form select {
+  width: 100%;
+  padding: 12px 16px;
+  border: 1.5px solid #dfe6e9;
+  border-radius: 8px;
+  font-size: 14px;
+  outline: none;
+  transition: border-color 0.2s;
+}
+
+.reg-form input:focus {
+  border-color: var(--umbrella-red);
+}
+
+.date-input {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.date-input label {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+/* Actions & Footer */
+.modal-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  margin-top: 32px;
+}
+
+.cancel-btn {
+  padding: 12px 24px;
+  background: #f1f2f6;
+  border: none;
+  border-radius: 8px;
+  color: var(--text-dark);
+  font-weight: 600;
+  cursor: pointer;
+}
+
+.submit-btn {
+  padding: 12px 32px;
+  background: var(--umbrella-red);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.1s;
+}
+
+.submit-btn:active { transform: scale(0.98); }
+
+/* Status Banners */
+.status-banner {
+  margin-top: 20px;
+  padding: 12px;
+  border-radius: 8px;
+  text-align: center;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.status-banner.success { background: #e6fffa; color: #00b894; }
+.status-banner.error { background: #fff5f5; color: #d63031; }
+.status-banner.loading { background: #f1f2f6; color: var(--text-muted); }
+
+/* Custom Sidebar Action Button */
+.nav-item.special-action {
+  margin-top: 10px;
+  border: 1px dashed rgba(255, 255, 255, 0.3);
+  background: rgba(35, 124, 197, 0.1);
+  color: #fff;
+}
+
+.nav-item.special-action:hover {
+  background: var(--umbrella-red);
+  border-style: solid;
+}
