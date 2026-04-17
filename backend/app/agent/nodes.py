@@ -73,15 +73,16 @@ def router_node(state: AgentState, config: RunnableConfig):
     chat_context = get_chat_context(state["messages"])
     structured_llm = llm.with_structured_output(RouteQuery)
 
-    # We add clear instructions so it knows 'IT' is a valid target for SQL
     instructions = f"""
-    Analyze the history and question to determine the target.
+    Analyze the history and question to determine the target and datasource.
 
     RULES:
-    1. If the user asks for a LIST of people in a department (e.g., 'Who works in IT?'),
-       set datasource='sql' and target_entity='IT'.
-    2. If the user asks about a specific person, set target_entity to their name.
-    3. If the user asks about themselves, set target_entity='SELF'.
+    1. Use 'sql' if the query is about a person, department list (e.g. 'IT'), PTO, salary, or contact info.
+       - Set target_entity to the person's name, department name, or 'SELF'.
+
+    2. Use 'vector' if the query is about company policies, rules, handbooks, or general 'how-to' questions.
+       - Examples: 'What is the dress code?', 'How do I apply for leave?', 'Remote work policy'.
+       - Set target_entity='NONE'.
 
     History: {chat_context}
     Question: {state['messages'][-1].content}
@@ -91,7 +92,8 @@ def router_node(state: AgentState, config: RunnableConfig):
 
     return {
         "source_used": result.datasource.lower(),
-        "extracted_target": result.target_entity
+        "extracted_target": result.target_entity,
+        "steps": state.get("steps", []) + ["router"] # Keep track of the path
     }
 
 # --- DATA NODES ---
