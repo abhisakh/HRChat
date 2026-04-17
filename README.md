@@ -1,6 +1,7 @@
 # HRChat_LLM — Context-Aware HR Chatbot with RBAC
 
 > A multi-user HR assistant powered by **FastAPI**, **LangGraph**, and **Hybrid AI** (SQL + Vector Search).
+> Context aware (aware about the old discussions)
 > Every user gets a personalised, role-restricted response. No two users see the same data.
 
 ---
@@ -26,6 +27,20 @@
 
 <img width="1492" alt="Screenshot 2026-04-17 at 08 43 13" src="https://github.com/user-attachments/assets/966a9d12-688b-4994-b2b3-6f70f4369f8c" />
 
+
+</td>
+</tr>
+</table>
+
+---
+
+## Scope for a HR
+
+<table>
+<tr>
+<td align="center" bgcolor="#f3f4f6">
+
+<img width="1492" alt="Screenshot 2026-04-17 at 08 49 41" src="https://github.com/user-attachments/assets/df266332-4a28-44a5-a9fd-0864c25c7252" />
 
 </td>
 </tr>
