@@ -47,6 +47,20 @@
 </table>
 
 ---
+## AI - Transperancy & Audit Trails
+
+
+<table>
+<tr>
+<td align="center" bgcolor="#f3f4f6">
+
+<img width="1492" alt="Screenshot 2026-04-17 at 13 57 24" src="https://github.com/user-attachments/assets/91f2da1a-cade-4dcb-92d8-f37aaf048d6b" />
+
+</td>
+</tr>
+</table>
+
+---
 
 <a id="table-of-contents"></a>
 
