@@ -10,7 +10,7 @@
 <tr>
 <td align="center" bgcolor="#f3f4f6">
 
-<img src="<img width="1492" alt="Screenshot 2026-04-17 at 08 42 06" src="https://github.com/user-attachments/assets/19faa041-a61d-4fb6-a342-9c1cb3c75f71" />
+<img width="1492" alt="Screenshot 2026-04-17 at 08 42 06" src="https://github.com/user-attachments/assets/19faa041-a61d-4fb6-a342-9c1cb3c75f71" />
 
 </td>
 </tr>
