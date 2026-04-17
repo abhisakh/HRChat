@@ -18,6 +18,21 @@
 
 ---
 
+## Scope for an Employee
+
+<table>
+<tr>
+<td align="center" bgcolor="#f3f4f6">
+
+<img width="1492" alt="Screenshot 2026-04-17 at 08 43 13" src="https://github.com/user-attachments/assets/966a9d12-688b-4994-b2b3-6f70f4369f8c" />
+
+
+</td>
+</tr>
+</table>
+
+---
+
 <a id="table-of-contents"></a>
 
 ## 📖 Table of Contents
