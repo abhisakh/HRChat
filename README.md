@@ -5,6 +5,9 @@
 > Every user gets a personalised, role-restricted response. No two users see the same data.
 
 ---
+<img width="1400" height="764" alt="Screenshot 2026-04-18 at 11 49 58" src="https://github.com/user-attachments/assets/a5a982da-7342-40f2-9fec-5acfb0082ad3" />
+
+---
 ## Login Portal
 
 <table>
