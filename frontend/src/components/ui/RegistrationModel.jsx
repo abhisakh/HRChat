@@ -36,6 +36,7 @@ const RegistrationModel = ({ adminId, onClose }) => {
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
+  /*
   const handleSubmit = async (e) => {
     e.preventDefault();
     setStatus({ type: 'loading', msg: 'Syncing with Umbrella mainframe...' });
@@ -48,6 +49,27 @@ const RegistrationModel = ({ adminId, onClose }) => {
       const result = await registerUser({
         ...formData,
         password: securePassword,
+        admin_id: adminId
+      });
+
+      if (result.status === 'success') {
+        setStatus({ type: 'success', msg: `Personnel ID ${result.user_id} registered.` });
+        setTimeout(() => onClose(), 2000);
+      }
+    } catch (err) {
+      setStatus({ type: 'error', msg: err.message });
+    }
+  };
+  */
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setStatus({ type: 'loading', msg: 'Syncing with Umbrella mainframe...' });
+
+    try {
+      // ✅ REVERTED: Send the plain password; let the Backend hash it securely
+      const result = await registerUser({
+        ...formData,
         admin_id: adminId
       });
 

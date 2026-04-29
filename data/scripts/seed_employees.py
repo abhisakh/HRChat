@@ -214,8 +214,9 @@ VALID_ROLES = ["employee", "hr", "admin"]
 
 # --- Helper Functions ---
 def hash_password(password: str) -> str:
-    """Return SHA256 hash of the password."""
-    return hashlib.sha256(password.encode()).hexdigest()
+    """Standardized SHA256 hashing with string cleaning."""
+    clean_p = str(password).strip()
+    return hashlib.sha256(clean_p.encode('utf-8')).hexdigest()
 
 def input_with_validation(prompt: str, valid_options: list = None, default: str = None):
     """Helper to get input with optional validation."""
@@ -276,6 +277,10 @@ def generate_and_seed_employees(num_employees: int = 20, manual: bool = False):
             hire_date = (datetime.now() - timedelta(days=random.randint(1, 3000))).strftime("%Y-%m-%d")
             supervisor = fake.name()
 
+        # Generate hash ONCE to ensure consistency between log and DB
+        p_hash = hash_password(password)
+        print(f"DEBUG: Hashing string: '{password}' | Hash: {p_hash}")
+
         # Seed Employee Data
         cursor.execute("""
             INSERT OR IGNORE INTO employees
@@ -283,17 +288,17 @@ def generate_and_seed_employees(num_employees: int = 20, manual: bool = False):
             VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (employee_id, first_name, last_name, email, phone_number, position, department, skills, location, hire_date, supervisor, salary))
 
-        # Seed Auth Data
+        # Seed Auth Data - Using the variable p_hash directly
         cursor.execute("""
             INSERT OR IGNORE INTO users (user_id, username, password_hash, role)
             VALUES (?, ?, ?, ?)
-        """, (employee_id, username, hash_password(password), role))
+        """, (employee_id, username, p_hash, role))
 
         print(f"Seeded user: {username} (ID: {employee_id}) with role: {role}")
 
     conn.commit()
     conn.close()
-    print("✅ Seeding complete.")
+    print("✅ Seeding complete. Use 'password123' (or your manual entry) to log in.")
 
 # --- Run Script ---
 if __name__ == "__main__":

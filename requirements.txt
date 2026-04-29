@@ -5,23 +5,16 @@ langgraph-checkpoint==4.0.1
 langgraph-sdk==0.3.9
 langchain_text_splitters
 langgraph-checkpoint-sqlite
-langchain_pinecone
+langchain-pinecone==0.2.13
 
 # --- Database & Vector Store ---
 faker==40.8.0
-pinecone==8.1.0
-pinecone-client==6.0.0
-pinecone-plugin-assistant==3.0.2
-pinecone-plugin-interface==0.0.7
-# Official LangChain integration for Pinecone
-langchain-pinecone==0.2.13
+pinecone>=7.0.0,<8.0.0
 
 # --- API & Server ---
 fastapi==0.135.1
-fastapi.middleware
 uvicorn==0.41.0
 python-dotenv==1.2.2
-dotenv
 
 # --- Data Processing ---
 pypdf==6.7.5
@@ -30,3 +23,6 @@ tiktoken==0.12.0
 # --- Utils ---
 pydantic==2.12.5
 httpx==0.28.1
+
+# ----- password hashing ---------
+bcrypt

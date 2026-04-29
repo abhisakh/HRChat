@@ -3,6 +3,7 @@ import uvicorn
 import sqlite3
 import hashlib
 import random
+import bcrypt
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel, Field
 from pathlib import Path
@@ -88,42 +89,62 @@ def get_connection():
     conn.execute("PRAGMA journal_mode=WAL")
     return conn
 
-# def verify_user(username, password):
-#     password_hash = hashlib.sha256(password.encode()).hexdigest()
-#     conn = get_connection()
-#     cursor = conn.cursor()
-#     query = """
-#         SELECT u.user_id, u.role, e.first_name
-#         FROM users u
-#         JOIN employees e ON u.user_id = e.user_id
-#         WHERE u.username = ? AND u.password_hash = ?
-#     """
-#     cursor.execute(query, (username, password_hash))
-#     result = cursor.fetchone()
-#     conn.close()
-#     if result:
-#         return {"user_id": result["user_id"], "role": result["role"], "first_name": result["first_name"]}
-#     return None
-
 def verify_user(username, password):
-    # REMOVE THIS LINE: password_hash = hashlib.sha256(password.encode()).hexdigest()
-    # The 'password' variable coming from React IS already the hash.
+    print("\n---- RAW INPUT DEBUG ----")
+    print(f"username repr: {repr(username)}")
+    print(f"password repr: {repr(password)}")
+    print(f"password length: {len(password) if password else 0}")
+    print("-------------------------")
+    # 1. Clean the inputs immediately
+    u = username.strip()
+    p = password.strip()
+
+    # 2. Generate the hash from the CLEANED password
+    incoming_hash = hashlib.sha256(p.encode('utf-8')).hexdigest()
+
+    print(f"\n--- [AUTH DEBUG START] ---")
+    print(f"Login Attempt Username: '{u}'")
+    print(f"Generated Hash: {incoming_hash}")
 
     conn = get_connection()
     cursor = conn.cursor()
+
+    # 3. Use the CLEANED username to look up the user
+    cursor.execute("SELECT username, password_hash FROM users WHERE username = ?", (u,))
+    db_user = cursor.fetchone()
+
+    if not db_user:
+        print(f"Result: USER NOT FOUND.")
+        conn.close()
+        return None
+
+    print(f"Database Hash Found: {db_user['password_hash']}")
+
+    if db_user['password_hash'] != incoming_hash:
+        print("Result: HASH MISMATCH.")
+        conn.close()
+        return None
+
+    # 4. Final Join Check
     query = """
         SELECT u.user_id, u.role, e.first_name
         FROM users u
         JOIN employees e ON u.user_id = e.user_id
         WHERE u.username = ? AND u.password_hash = ?
     """
-    # Use the 'password' directly as the hash
-    cursor.execute(query, (username, password))
+    cursor.execute(query, (u, incoming_hash))
     result = cursor.fetchone()
     conn.close()
 
     if result:
-        return {"user_id": result["user_id"], "role": result["role"], "first_name": result["first_name"]}
+        print("Result: SUCCESS.")
+        # Access by index to be safe (0: user_id, 1: role, 2: first_name)
+        return {
+            "user_id": result[0],
+            "role": result[1],
+            "first_name": result[2]
+        }
+
     return None
 
 def get_user_role(user_id):
@@ -348,31 +369,43 @@ async def audit_logs(user_id: str):
 
 @app.post("/register")
 async def register(request: RegisterRequest):
+    """
+    Registers a new employee with SHA-256 hashing for credentials.
+    """
     conn = get_connection()
     cursor = conn.cursor()
 
-    # 1. Authority Check
-    cursor.execute("SELECT role FROM users WHERE user_id = ?", (request.admin_id,))
-    admin_record = cursor.fetchone()
-
-    if not admin_record or admin_record["role"] not in ["admin", "hr"]:
-        conn.close()
-        raise HTTPException(status_code=403, detail="Unauthorized: Only Admin/HR can register employees.")
-
-    # 2. Duplicate Check
-    cursor.execute("SELECT username FROM users WHERE username = ?", (request.username,))
-    if cursor.fetchone():
-        conn.close()
-        raise HTTPException(status_code=400, detail="Username already taken")
-
     try:
-        # Generate Unique ID
+        # 1. Authority Check
+        cursor.execute("SELECT role FROM users WHERE user_id = ?", (request.admin_id,))
+        admin_record = cursor.fetchone()
+
+        if not admin_record or admin_record["role"] not in ["admin", "hr"]:
+            raise HTTPException(
+                status_code=403,
+                detail="Unauthorized: Only Admin/HR can register personnel."
+            )
+
+        # 2. Duplicate Check
+        cursor.execute("SELECT username FROM users WHERE username = ?", (request.username,))
+        if cursor.fetchone():
+            raise HTTPException(
+                status_code=400,
+                detail="Username already exists in database."
+            )
+
+        # 3. Unique ID Generation
         while True:
             new_id = f"user_{random.randint(1000, 9999)}"
             cursor.execute("SELECT user_id FROM employees WHERE user_id = ?", (new_id,))
-            if not cursor.fetchone(): break
+            if not cursor.fetchone():
+                break
 
-        # 3. Insert into Employees table
+        # --- 4. UPDATED: SHA-256 Hashing ---
+        # We use hashlib to create a deterministic 64-character hex string.
+        password_hash = hashlib.sha256(request.password.encode('utf-8')).hexdigest()
+
+        # 5. Insert into 'employees' table
         cursor.execute("""
             INSERT INTO employees (
                 user_id, first_name, last_name, email, phone_number,
@@ -387,19 +420,27 @@ async def register(request: RegisterRequest):
             request.supervisor, request.salary, request.available_pto
         ))
 
-        # 4. Insert into Users table (Storing the hash sent from React)
+        # 6. Insert into 'users' table (Using the SHA-256 hash)
         cursor.execute("""
             INSERT INTO users (user_id, username, password_hash, role)
             VALUES (?, ?, ?, ?)
-        """, (new_id, request.username, request.password, request.role))
+        """, (new_id, request.username, password_hash, request.role))
 
         conn.commit()
-        return {"status": "success", "user_id": new_id, "assigned_role": request.role}
 
+        print(f"--- [SUCCESS] Registered {request.username} with SHA-256 ---")
+        return {
+            "status": "success",
+            "user_id": new_id,
+            "assigned_role": request.role
+        }
+
+    except HTTPException as he:
+        raise he
     except Exception as e:
         conn.rollback()
-        print(f"Registration Error: {e}")
-        raise HTTPException(status_code=500, detail="Database insertion failed.")
+        print(f"--- [ERROR] --- {e}")
+        raise HTTPException(status_code=500, detail="Database provisioning failed.")
     finally:
         conn.close()
 
