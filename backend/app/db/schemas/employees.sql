@@ -16,7 +16,8 @@ CREATE TABLE IF NOT EXISTS employees (
 );
 
 CREATE TABLE IF NOT EXISTS employee_skills (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id TEXT,
     skill TEXT,
-    FOREIGN KEY (user_id) REFERENCES employees(user_id)
+    FOREIGN KEY(user_id) REFERENCES employees(user_id)
 );

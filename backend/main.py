@@ -67,16 +67,16 @@ class RegisterRequest(BaseModel):
     first_name: str
     last_name: str
     email: str
-    phone_number: str
+    phone_number: Optional[str] = None
     position: str
     department: str
-    skills: str
-    location: str
+    location: Optional[str] = None
     hire_date: str
-    supervisor: str
+    supervisor_id: Optional[str] = None
     salary: float
     role: str = "employee"
-    available_pto: int
+    available_pto: int = 15
+    skills: Optional[str] = None
 
 # --- 3. DB Helpers ---
 
@@ -369,15 +369,18 @@ async def audit_logs(user_id: str):
 
 @app.post("/register")
 async def register(request: RegisterRequest):
-    """
-    Registers a new employee with SHA-256 hashing for credentials.
-    """
+
     conn = get_connection()
     cursor = conn.cursor()
 
     try:
-        # 1. Authority Check
-        cursor.execute("SELECT role FROM users WHERE user_id = ?", (request.admin_id,))
+        # =========================================================
+        # 1. AUTH CHECK
+        # =========================================================
+        cursor.execute(
+            "SELECT role FROM users WHERE user_id = ?",
+            (request.admin_id,)
+        )
         admin_record = cursor.fetchone()
 
         if not admin_record or admin_record["role"] not in ["admin", "hr"]:
@@ -386,49 +389,121 @@ async def register(request: RegisterRequest):
                 detail="Unauthorized: Only Admin/HR can register personnel."
             )
 
-        # 2. Duplicate Check
-        cursor.execute("SELECT username FROM users WHERE username = ?", (request.username,))
+        # =========================================================
+        # 2. DUPLICATE CHECK
+        # =========================================================
+        cursor.execute(
+            "SELECT username FROM users WHERE username = ?",
+            (request.username,)
+        )
         if cursor.fetchone():
             raise HTTPException(
                 status_code=400,
                 detail="Username already exists in database."
             )
 
-        # 3. Unique ID Generation
+        # =========================================================
+        # 3. UNIQUE ID GENERATION
+        # =========================================================
         while True:
             new_id = f"user_{random.randint(1000, 9999)}"
-            cursor.execute("SELECT user_id FROM employees WHERE user_id = ?", (new_id,))
+            cursor.execute(
+                "SELECT user_id FROM employees WHERE user_id = ?",
+                (new_id,)
+            )
             if not cursor.fetchone():
                 break
 
-        # --- 4. UPDATED: SHA-256 Hashing ---
-        # We use hashlib to create a deterministic 64-character hex string.
-        password_hash = hashlib.sha256(request.password.encode('utf-8')).hexdigest()
+        # =========================================================
+        # 4. PASSWORD HASHING
+        # =========================================================
+        password_hash = hashlib.sha256(
+            request.password.encode("utf-8")
+        ).hexdigest()
 
-        # 5. Insert into 'employees' table
+        # =========================================================
+        # 5. NORMALIZE SUPERVISOR ID
+        # =========================================================
+        supervisor_id = request.supervisor_id
+        if supervisor_id == "":
+            supervisor_id = None
+
+        # =========================================================
+        # 6. INSERT EMPLOYEE
+        # =========================================================
         cursor.execute("""
             INSERT INTO employees (
-                user_id, first_name, last_name, email, phone_number,
-                position, department, skills, location, hire_date,
-                supervisor, salary, available_pto
+                user_id,
+                first_name,
+                last_name,
+                email,
+                phone_number,
+                position,
+                department,
+                location,
+                hire_date,
+                supervisor_id,
+                salary,
+                available_pto
             )
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         """, (
-            new_id, request.first_name, request.last_name, request.email,
-            request.phone_number, request.position, request.department,
-            request.skills, request.location, request.hire_date,
-            request.supervisor, request.salary, request.available_pto
+            new_id,
+            request.first_name,
+            request.last_name,
+            request.email,
+            request.phone_number,
+            request.position,
+            request.department,
+            request.location,
+            request.hire_date,
+            supervisor_id,
+            float(request.salary),
+            request.available_pto
         ))
 
-        # 6. Insert into 'users' table (Using the SHA-256 hash)
+        # =========================================================
+        # 7. INSERT USER AUTH DATA
+        # =========================================================
         cursor.execute("""
-            INSERT INTO users (user_id, username, password_hash, role)
+            INSERT INTO users (
+                user_id,
+                username,
+                password_hash,
+                role
+            )
             VALUES (?, ?, ?, ?)
-        """, (new_id, request.username, password_hash, request.role))
+        """, (
+            new_id,
+            request.username,
+            password_hash,
+            request.role
+        ))
 
+        # =========================================================
+        # 8. INSERT SKILLS (SAFE VERSION)
+        # =========================================================
+        if request.skills and request.skills.strip():
+
+            skill_list = [
+                s.strip().lower()
+                for s in request.skills.split(",")
+                if s.strip()
+            ]
+
+            for skill in skill_list:
+                cursor.execute("""
+                    INSERT INTO employee_skills (user_id, skill)
+                    VALUES (?, ?)
+                """, (new_id, skill))
+
+        # =========================================================
+        # 9. COMMIT
+        # =========================================================
         conn.commit()
 
-        print(f"--- [SUCCESS] Registered {request.username} with SHA-256 ---")
+        print(f"--- [SUCCESS] Registered {request.username} ---")
+
         return {
             "status": "success",
             "user_id": new_id,
@@ -437,10 +512,15 @@ async def register(request: RegisterRequest):
 
     except HTTPException as he:
         raise he
+
     except Exception as e:
         conn.rollback()
         print(f"--- [ERROR] --- {e}")
-        raise HTTPException(status_code=500, detail="Database provisioning failed.")
+        raise HTTPException(
+            status_code=500,
+            detail="Database provisioning failed."
+        )
+
     finally:
         conn.close()
 
