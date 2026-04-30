@@ -26,3 +26,5 @@ httpx==0.28.1
 
 # ----- password hashing ---------
 bcrypt
+
+pytest

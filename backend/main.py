@@ -73,10 +73,11 @@ class RegisterRequest(BaseModel):
     location: Optional[str] = None
     hire_date: str
     supervisor_id: Optional[str] = None
+    skills: Optional[str] = None
     salary: float
     role: str = "employee"
     available_pto: int = 15
-    skills: Optional[str] = None
+
 
 # --- 3. DB Helpers ---
 
@@ -422,10 +423,10 @@ async def register(request: RegisterRequest):
         ).hexdigest()
 
         # =========================================================
-        # 5. NORMALIZE SUPERVISOR ID
+        # 5. NORMALIZE SUPERVISOR ID (ROBUST FIX)
         # =========================================================
         supervisor_id = request.supervisor_id
-        if supervisor_id == "":
+        if not supervisor_id or str(supervisor_id).strip() == "":
             supervisor_id = None
 
         # =========================================================
@@ -458,7 +459,7 @@ async def register(request: RegisterRequest):
             request.location,
             request.hire_date,
             supervisor_id,
-            float(request.salary),
+            request.salary,
             request.available_pto
         ))
 
@@ -481,10 +482,9 @@ async def register(request: RegisterRequest):
         ))
 
         # =========================================================
-        # 8. INSERT SKILLS (SAFE VERSION)
+        # 8. INSERT SKILLS (SAFE + CLEAN)
         # =========================================================
-        if request.skills and request.skills.strip():
-
+        if request.skills:
             skill_list = [
                 s.strip().lower()
                 for s in request.skills.split(",")
@@ -501,8 +501,6 @@ async def register(request: RegisterRequest):
         # 9. COMMIT
         # =========================================================
         conn.commit()
-
-        print(f"--- [SUCCESS] Registered {request.username} ---")
 
         return {
             "status": "success",
