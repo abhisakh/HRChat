@@ -233,17 +233,23 @@ def input_with_validation(prompt: str, valid_options: list = None, default: str 
                 return value
 
 # --- Main Seeding Function ---
+# --- Main Seeding Function ---
 def generate_and_seed_employees(num_employees: int = 20, manual: bool = False):
     print("🏗️  Building database schemas from SQL files...")
-    init_db()  # Ensure tables exist
+    init_db()
 
     conn = sqlite3.connect(DB_PATH)
     cursor = conn.cursor()
 
     print(f"🌱 Seeding {num_employees} employees with credentials and roles...")
 
+    existing_ids = []  # ✅ track created employees
+
     for _ in range(num_employees):
         employee_id = f"user_{random.randint(1000, 9999)}"
+
+        # --- Assign supervisor FIRST (from existing employees) ---
+        supervisor_id = random.choice(existing_ids) if existing_ids else None
 
         if manual:
             print("\n--- Enter employee details ---")
@@ -257,10 +263,20 @@ def generate_and_seed_employees(num_employees: int = 20, manual: bool = False):
             email = input_with_validation("Email (optional): ", default=fake.email())
             phone_number = input_with_validation("Phone number (optional): ", default=fake.phone_number())
             department = input_with_validation("Department (optional): ", default=random.choice(["IT", "HR", "Security"]))
-            skills = input_with_validation("Skills (comma separated, optional): ", default=", ".join(random.sample(["Python", "Security", "AI"], k=2)))
+
+            # ✅ Skills as list (not string)
+            raw_skills = input_with_validation(
+                "Skills (comma separated, optional): ",
+                default="Python, AI"
+            )
+            skills_list = [s.strip().upper() for s in raw_skills.split(",") if s.strip()]
+
             location = input_with_validation("Location (optional): ", default=random.choice(["Raccoon City HQ", "Umbrella Europe"]))
-            hire_date = input_with_validation("Hire Date (YYYY-MM-DD, optional): ", default=(datetime.now() - timedelta(days=random.randint(1, 3000))).strftime("%Y-%m-%d"))
-            supervisor = input_with_validation("Supervisor (optional): ", default=fake.name())
+            hire_date = input_with_validation(
+                "Hire Date (YYYY-MM-DD, optional): ",
+                default=(datetime.now() - timedelta(days=random.randint(1, 3000))).strftime("%Y-%m-%d")
+            )
+
         else:
             first_name = fake.first_name()
             last_name = fake.last_name()
@@ -272,29 +288,55 @@ def generate_and_seed_employees(num_employees: int = 20, manual: bool = False):
             email = fake.email()
             phone_number = fake.phone_number()
             department = random.choice(["IT", "HR", "Security"])
-            skills = ", ".join(random.sample(["Python", "Security", "AI"], k=2))
+
+            # ✅ Skills list (normalized)
+            skills_list = random.sample(["PYTHON", "SECURITY", "AI"], k=2)
+
             location = random.choice(["Raccoon City HQ", "Umbrella Europe"])
             hire_date = (datetime.now() - timedelta(days=random.randint(1, 3000))).strftime("%Y-%m-%d")
-            supervisor = fake.name()
 
-        # Generate hash ONCE to ensure consistency between log and DB
+        # --- Hash password ---
         p_hash = hash_password(password)
         print(f"DEBUG: Hashing string: '{password}' | Hash: {p_hash}")
 
-        # Seed Employee Data
+        # --- Insert employee (NO skills, NO supervisor name anymore) ---
         cursor.execute("""
             INSERT OR IGNORE INTO employees
-            (user_id, first_name, last_name, email, phone_number, position, department, skills, location, hire_date, supervisor, salary)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (employee_id, first_name, last_name, email, phone_number, position, department, skills, location, hire_date, supervisor, salary))
+            (user_id, first_name, last_name, email, phone_number,
+             position, department, location, hire_date,
+             supervisor_id, salary)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            employee_id,
+            first_name,
+            last_name,
+            email,
+            phone_number,
+            position,
+            department,
+            location,
+            hire_date,
+            supervisor_id,
+            salary
+        ))
 
-        # Seed Auth Data - Using the variable p_hash directly
+        # --- Insert skills into separate table ---
+        for skill in skills_list:
+            cursor.execute("""
+                INSERT INTO employee_skills (user_id, skill)
+                VALUES (?, ?)
+            """, (employee_id, skill))
+
+        # --- Insert auth data ---
         cursor.execute("""
             INSERT OR IGNORE INTO users (user_id, username, password_hash, role)
             VALUES (?, ?, ?, ?)
         """, (employee_id, username, p_hash, role))
 
         print(f"Seeded user: {username} (ID: {employee_id}) with role: {role}")
+
+        # ✅ Add AFTER insert
+        existing_ids.append(employee_id)
 
     conn.commit()
     conn.close()

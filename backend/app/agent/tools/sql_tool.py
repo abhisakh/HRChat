@@ -1,8 +1,13 @@
 # #backend/app/agent/tools/sql_tool.py
+import re
+import json
 import sqlite3
 from pathlib import Path
+from datetime import datetime
 
 DB_PATH = Path(__file__).parent.parent.parent / "db" / "hr_database.db"
+
+ALLOWED_ROLES_FULL_ACCESS = {"admin", "hr"}
 
 def query_employee_db(user_id: str, role: str, target: str):
     conn = None
@@ -11,42 +16,257 @@ def query_employee_db(user_id: str, role: str, target: str):
         conn.row_factory = sqlite3.Row
         cursor = conn.cursor()
 
-        # Handle "Self"
-        if target.upper() in ["SELF", "ME", "MY"] or target == user_id:
-            cursor.execute("SELECT * FROM employees WHERE user_id = ?", (user_id,))
+        role = role.lower()
+        clean_target = re.sub(r'\b(department|dept|team|office)\b', '', target, flags=re.IGNORECASE).strip()
+        target_upper = clean_target.upper()
+        current_year = datetime.now().year
+
+        # --- Base query (clean supervisor join) ---
+        base_query = """
+            SELECT e.*,
+                   s.first_name || ' ' || s.last_name AS supervisor_name,
+                   s.email AS supervisor_email,
+                   s.phone_number AS supervisor_phone
+            FROM employees e
+            LEFT JOIN employees s ON e.supervisor_id = s.user_id
+        """
+
+        # --- 1. SELF lookup ---
+        if target_upper in {"SELF", "ME", "MY"}:
+            cursor.execute(f"{base_query} WHERE e.user_id = ?", (user_id,))
+            row = cursor.fetchone()
+            return {"status": "ok", "data": dict(row)} if row else {"status": "error", "message": "User not found"}
+
+        # --- 2. Total Headcount ---
+        if target_upper in {"TOTAL_COUNT", "EMPLOYEE_COUNT", "COMPANY"}:
+            cursor.execute("SELECT COUNT(*) FROM employees")
+            return {"status": "ok", "data": cursor.fetchone()[0]}
+
+        # --- 3. Department Distribution ---
+        if target_upper in {"DEPARTMENTS", "DISTRIBUTION"}:
+            cursor.execute("""
+                SELECT department, COUNT(*) as count
+                FROM employees
+                GROUP BY department
+                ORDER BY count DESC
+            """)
+            return {"status": "ok", "data": [dict(r) for r in cursor.fetchall()]}
+
+        # --- 4. Managers (Span of Control) ---
+        if target_upper == "MANAGERS":
+            cursor.execute("""
+                SELECT s.first_name || ' ' || s.last_name AS manager,
+                       COUNT(e.user_id) as reports
+                FROM employees e
+                JOIN employees s ON e.supervisor_id = s.user_id
+                GROUP BY e.supervisor_id
+                ORDER BY reports DESC
+            """)
+            return {"status": "ok", "data": [dict(r) for r in cursor.fetchall()]}
+
+        # --- 5. Skill Search ---
+        if target_upper.startswith("SKILL_"):
+            skill = target_upper.replace("SKILL_", "")
+            cursor.execute("""
+                SELECT e.first_name, e.last_name, e.department, es.skill
+                FROM employee_skills es
+                JOIN employees e ON es.user_id = e.user_id
+                WHERE es.skill = ?
+            """, (skill,))
+            return {"status": "ok", "data": [dict(r) for r in cursor.fetchall()]}
+
+        # --- 6. Tenure Alerts ---
+        if target_upper == "TENURE_ALERTS":
+            threshold = f"{current_year - 5}-01-01"
+            cursor.execute("""
+                SELECT first_name, last_name, hire_date
+                FROM employees
+                WHERE DATE(hire_date) <= DATE(?)
+            """, (threshold,))
+            return {"status": "ok", "data": [dict(r) for r in cursor.fetchall()]}
+
+        # --- 7. Burnout Risk ---
+        if target_upper == "BURNOUT_RISK":
+            cursor.execute("""
+                SELECT first_name, last_name, available_pto
+                FROM employees
+                WHERE available_pto > 12
+            """)
+            return {"status": "ok", "data": [dict(r) for r in cursor.fetchall()]}
+
+        # --- 8. Salary Stats (RBAC) ---
+        if target_upper == "SALARY_STATS":
+            if role not in ALLOWED_ROLES_FULL_ACCESS:
+                return {"status": "error", "message": "Access Denied"}
+
+            cursor.execute("""
+                SELECT department, ROUND(AVG(salary), 2) as avg_salary
+                FROM employees
+                GROUP BY department
+            """)
+            return {"status": "ok", "data": [dict(r) for r in cursor.fetchall()]}
+
+        # --- 9. Reports by Manager ---
+        if target_upper.startswith("REPORTS_"):
+            manager_name = target_upper.replace("REPORTS_", "")
+            cursor.execute(f"""
+                {base_query}
+                WHERE UPPER(s.first_name || ' ' || s.last_name) = ?
+            """, (manager_name,))
+            rows = cursor.fetchall()
+
+        # --- 10. General Search ---
         else:
-            # Search by Name, Department, or ID
-            search_param = f"%{target}%"
-            query = """
-                SELECT * FROM employees
-                WHERE user_id = ?
-                   OR (first_name || ' ' || last_name) LIKE ?
-                   OR first_name LIKE ?
-                   OR last_name LIKE ?
-                   OR department LIKE ?
-            """
-            cursor.execute(query, (target, search_param, search_param, search_param, search_param))
+            pattern = f"%{clean_target}%"
+            cursor.execute(f"""
+                {base_query}
+                WHERE e.user_id = ?
+                   OR (e.first_name || ' ' || e.last_name) LIKE ?
+                   OR UPPER(e.first_name) = ?
+                   OR UPPER(e.department) = ?
+            """, (user_id, pattern, target_upper, target_upper))
 
-        rows = cursor.fetchall()
+            rows = cursor.fetchall()
+
         if not rows:
-            return f"No records found for '{target}'."
+            return {"status": "error", "message": f"No records found for '{target}'"}
 
+        # --- RBAC filtering ---
         results = []
-        for row in rows:
-            data = dict(row)
-            # RBAC: Only Admin/HR can see salaries of others
-            if role not in ["admin", "hr"] and data['user_id'] != user_id:
-                # Remove salary and other sensitive fields for peer-to-peer lookups
-                data.pop('salary', None)
-                # Keep public info
-            results.append(data)
+        for r in rows:
+            d = dict(r)
 
-        return results if len(results) > 1 else results[0]
+            if not (d['user_id'] == user_id or role in ALLOWED_ROLES_FULL_ACCESS):
+                for f in ['salary', 'available_pto', 'hire_date']:
+                    d.pop(f, None)
+
+            results.append(d)
+
+        return {"status": "ok", "data": results if len(results) > 1 else results[0]}
 
     except Exception as e:
-        return f"Error: {str(e)}"
+        return {"status": "error", "message": str(e)}
+
     finally:
-        if conn: conn.close()
+        if conn:
+            conn.close()
+
+# def query_employee_db(user_id: str, role: str, target: str):
+#     conn = None
+#     try:
+#         conn = sqlite3.connect(DB_PATH, timeout=30)
+#         conn.row_factory = sqlite3.Row
+#         cursor = conn.cursor()
+
+#         target_upper = target.upper()
+
+#         # --- 1. DYNAMIC AGGREGATE: Company-wide Count ---
+#         if target_upper in ["NONE", "TOTAL_COUNT", "COMPANY", "EMPLOYEE_COUNT"]:
+#             cursor.execute("SELECT COUNT(*) FROM employees")
+#             count = cursor.fetchone()[0]
+#             return f"There are currently {count} employees at Umbrella Corp."
+
+#         # --- 2. DYNAMIC GROUPING: Department Stats ---
+#         # Triggered by queries like "How many departments?" or "List departments"
+#         if target_upper in ["DEPARTMENTS", "DEPT_LIST"]:
+#             cursor.execute("SELECT department, COUNT(*) as count FROM employees GROUP BY department")
+#             rows = cursor.fetchall()
+#             return [dict(row) for row in rows]
+
+#         # --- 3. DYNAMIC FILTER: Departmental Membership ---
+#         # If the target looks like a department name
+#         cursor.execute("SELECT DISTINCT department FROM employees")
+#         depts = [d['department'].upper() for d in cursor.fetchall()]
+
+#         if target_upper in depts:
+#             cursor.execute("SELECT * FROM employees WHERE UPPER(department) = ?", (target_upper,))
+
+#         # --- 4. INDIVIDUAL SEARCH: Name, ID, or Self ---
+#         elif target_upper in ["SELF", "ME", "MY"] or target == user_id:
+#             cursor.execute("SELECT * FROM employees WHERE user_id = ?", (user_id,))
+#         else:
+#             search_param = f"%{target}%"
+#             query = """
+#                 SELECT * FROM employees
+#                 WHERE user_id = ?
+#                    OR (first_name || ' ' || last_name) LIKE ?
+#                    OR first_name LIKE ?
+#                    OR last_name LIKE ?
+#             """
+#             cursor.execute(query, (target, search_param, search_param, search_param))
+
+#         rows = cursor.fetchall()
+#         if not rows:
+#             return f"No records found for '{target}'."
+
+#         # --- 5. RBAC ENFORCEMENT & PII MASKING ---
+#         results = []
+#         for row in rows:
+#             data = dict(row)
+
+#             # Check if current user has permission to see this specific record's salary
+#             is_own_record = (data['user_id'] == user_id)
+#             is_privileged_role = (role.lower() in ["admin", "hr"])
+
+#             if not is_own_record and not is_privileged_role:
+#                 # Remove sensitive fields for peer-to-peer or unauthorized lookups
+#                 data.pop('salary', None)
+#                 data.pop('available_pto', None) # Masking PTO as well for peers
+
+#             results.append(data)
+
+#         # Return a list for multiple results (e.g., department list)
+#         # or a single dict for specific employee lookups
+#         return results if len(results) > 1 else results[0]
+
+#     except Exception as e:
+#         return f"Error: {str(e)}"
+#     finally:
+#         if conn: conn.close()
+
+# def query_employee_db(user_id: str, role: str, target: str):
+#     conn = None
+#     try:
+#         conn = sqlite3.connect(DB_PATH, timeout=30)
+#         conn.row_factory = sqlite3.Row
+#         cursor = conn.cursor()
+
+#         # Handle "Self"
+#         if target.upper() in ["SELF", "ME", "MY"] or target == user_id:
+#             cursor.execute("SELECT * FROM employees WHERE user_id = ?", (user_id,))
+#         else:
+#             # Search by Name, Department, or ID
+#             search_param = f"%{target}%"
+#             query = """
+#                 SELECT * FROM employees
+#                 WHERE user_id = ?
+#                    OR (first_name || ' ' || last_name) LIKE ?
+#                    OR first_name LIKE ?
+#                    OR last_name LIKE ?
+#                    OR department LIKE ?
+#             """
+#             cursor.execute(query, (target, search_param, search_param, search_param, search_param))
+
+#         rows = cursor.fetchall()
+#         if not rows:
+#             return f"No records found for '{target}'."
+
+#         results = []
+#         for row in rows:
+#             data = dict(row)
+#             # RBAC: Only Admin/HR can see salaries of others
+#             if role not in ["admin", "hr"] and data['user_id'] != user_id:
+#                 # Remove salary and other sensitive fields for peer-to-peer lookups
+#                 data.pop('salary', None)
+#                 # Keep public info
+#             results.append(data)
+
+#         return results if len(results) > 1 else results[0]
+
+#     except Exception as e:
+#         return f"Error: {str(e)}"
+#     finally:
+#         if conn: conn.close()
 
 
 # import os
