@@ -374,6 +374,11 @@ async def register(request: RegisterRequest):
     conn = get_connection()
     cursor = conn.cursor()
 
+    print("\n========== REGISTER START ==========")
+    print(f"[DEBUG] admin_id: {request.admin_id}")
+    print(f"[DEBUG] username: {request.username}")
+    print(f"[DEBUG] supervisor_id: {request.supervisor_id}")
+
     try:
         # =========================================================
         # 1. AUTH CHECK
@@ -384,54 +389,107 @@ async def register(request: RegisterRequest):
         )
         admin_record = cursor.fetchone()
 
+        print(f"[DEBUG] admin_record: {admin_record}")
+
         if not admin_record or admin_record["role"] not in ["admin", "hr"]:
+            print("[DEBUG] AUTH FAILED")
             raise HTTPException(
                 status_code=403,
                 detail="Unauthorized: Only Admin/HR can register personnel."
             )
 
         # =========================================================
-        # 2. DUPLICATE CHECK
+        # 2. DUPLICATE USERNAME CHECK
         # =========================================================
         cursor.execute(
             "SELECT username FROM users WHERE username = ?",
             (request.username,)
         )
-        if cursor.fetchone():
+        duplicate = cursor.fetchone()
+
+        print(f"[DEBUG] duplicate username check: {duplicate}")
+
+        if duplicate:
             raise HTTPException(
                 status_code=400,
-                detail="Username already exists in database."
+                detail="Username already exists."
             )
 
         # =========================================================
-        # 3. UNIQUE ID GENERATION
+        # 3. GENERATE USER ID
         # =========================================================
         while True:
             new_id = f"user_{random.randint(1000, 9999)}"
             cursor.execute(
-                "SELECT user_id FROM employees WHERE user_id = ?",
+                "SELECT user_id FROM users WHERE user_id = ?",
                 (new_id,)
             )
-            if not cursor.fetchone():
+            exists = cursor.fetchone()
+            print(f"[DEBUG] trying user_id={new_id}, exists={exists}")
+            if not exists:
                 break
 
+        print(f"[DEBUG] FINAL new_id: {new_id}")
+
         # =========================================================
-        # 4. PASSWORD HASHING
+        # 4. NORMALIZE SUPERVISOR ID
+        # =========================================================
+        supervisor_id = request.supervisor_id
+        print(f"SUPERVISOR REQUESTED: {supervisor_id }")
+        print("[DEBUG] supervisor_id FINAL TYPE:", type(supervisor_id), supervisor_id)
+        if not supervisor_id or str(supervisor_id).strip() == "":
+            supervisor_id = None
+        else:
+            cursor.execute(
+                "SELECT user_id FROM employees WHERE user_id = ?",
+                (supervisor_id,)
+            )
+            sup = cursor.fetchone()
+
+            print(f"[DEBUG] supervisor lookup result: {sup}")
+
+            if not sup:
+                raise HTTPException(
+                    status_code=400,
+                    detail="Invalid supervisor_id."
+                )
+
+        # =========================================================
+        # 5. HASH PASSWORD
         # =========================================================
         password_hash = hashlib.sha256(
             request.password.encode("utf-8")
         ).hexdigest()
 
-        # =========================================================
-        # 5. NORMALIZE SUPERVISOR ID (ROBUST FIX)
-        # =========================================================
-        supervisor_id = request.supervisor_id
-        if not supervisor_id or str(supervisor_id).strip() == "":
-            supervisor_id = None
+        print(f"[DEBUG] password hashed OK")
 
         # =========================================================
-        # 6. INSERT EMPLOYEE
+        # 6. INSERT USERS
         # =========================================================
+        print("[DEBUG] inserting into USERS...")
+
+        cursor.execute("""
+            INSERT INTO users (
+                user_id,
+                username,
+                password_hash,
+                role
+            )
+            VALUES (?, ?, ?, ?)
+        """, (
+            new_id,
+            request.username,
+            password_hash,
+            request.role
+        ))
+
+        print("[DEBUG] USERS insert done")
+
+        # =========================================================
+        # 7. INSERT EMPLOYEE
+        # =========================================================
+        print("[DEBUG] inserting into EMPLOYEES...")
+
         cursor.execute("""
             INSERT INTO employees (
                 user_id,
@@ -463,26 +521,10 @@ async def register(request: RegisterRequest):
             request.available_pto
         ))
 
-        # =========================================================
-        # 7. INSERT USER AUTH DATA
-        # =========================================================
-        cursor.execute("""
-            INSERT INTO users (
-                user_id,
-                username,
-                password_hash,
-                role
-            )
-            VALUES (?, ?, ?, ?)
-        """, (
-            new_id,
-            request.username,
-            password_hash,
-            request.role
-        ))
+        print("[DEBUG] EMPLOYEES insert done")
 
         # =========================================================
-        # 8. INSERT SKILLS (SAFE + CLEAN)
+        # 8. INSERT SKILLS
         # =========================================================
         if request.skills:
             skill_list = [
@@ -490,6 +532,8 @@ async def register(request: RegisterRequest):
                 for s in request.skills.split(",")
                 if s.strip()
             ]
+
+            print(f"[DEBUG] skills: {skill_list}")
 
             for skill in skill_list:
                 cursor.execute("""
@@ -502,18 +546,23 @@ async def register(request: RegisterRequest):
         # =========================================================
         conn.commit()
 
+        print("[DEBUG] COMMIT SUCCESS")
+        print("========== REGISTER END ==========\n")
+
         return {
             "status": "success",
             "user_id": new_id,
             "assigned_role": request.role
         }
 
-    except HTTPException as he:
-        raise he
+    except HTTPException:
+        conn.rollback()
+        print("[DEBUG] HTTPException rollback")
+        raise
 
     except Exception as e:
         conn.rollback()
-        print(f"--- [ERROR] --- {e}")
+        print(f"--- [ERROR] REGISTER FAILED --- {e}")
         raise HTTPException(
             status_code=500,
             detail="Database provisioning failed."
