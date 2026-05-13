@@ -25,6 +25,6 @@ pydantic==2.12.5
 httpx==0.28.1
 
 # ----- password hashing ---------
-bcrypt
+bcrypt==5.0.0
 
 pytest

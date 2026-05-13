@@ -9,11 +9,7 @@ services:
 
     volumes:
       - ./backend:/app/backend
-      - ./backend/app/db:/app/backend/app/db
       - ./data:/app/data
-
-    environment:
-      - PYTHONPATH=/app/backend
 
     env_file:
       - .env
@@ -30,13 +26,11 @@ services:
       - "5173:5173"
 
     volumes:
-      # sync code
       - ./frontend:/app
-      # IMPORTANT: preserve node_modules inside container
       - /app/node_modules
 
     environment:
-      - VITE_API_URL=http://localhost:8000
+      - VITE_API_URL=http://backend:8000
 
     depends_on:
       - backend

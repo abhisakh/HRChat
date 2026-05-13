@@ -178,7 +178,7 @@ def generate_node(state: AgentState, config: RunnableConfig):
     # 3. PRE-LMM LOGIC (SECURITY + INTENT + TARGET)
     # ============================================================
     user_query = state["messages"][-1].content.lower()
-    target = state.get("target", "").lower()
+    target = state.get("extracted_target", "").lower()
 
     contact_keywords = ["contact", "email", "phone", "reach"]
     is_contact_query = any(k in user_query for k in contact_keywords)
@@ -193,8 +193,10 @@ def generate_node(state: AgentState, config: RunnableConfig):
                 continue
 
             # 🔒 Remove supervisor data unless explicitly requested
-            if not any(k in user_query for k in ["manager", "supervisor", "reports"]):
-                r.pop("supervisor_name", None)
+            if not any(k in user_query for k in ["manager", "supervisor", "reports", "boss"]):
+                # Use the exact keys from your DB results
+                r.pop("supervisor", None)        # Matches your DB 'supervisor' column
+                r.pop("supervisor_name", None)   # Safety catch
                 r.pop("supervisor_email", None)
                 r.pop("supervisor_phone", None)
 
@@ -208,6 +210,9 @@ def generate_node(state: AgentState, config: RunnableConfig):
 
         # Replace raw_data with filtered data
         raw_data = processed_records
+        if not raw_data:
+            print(f"[DEBUG] No records remained after filtering for target: {target}")
+            return {"answer": f"I found the employee, but I don't have permission to show those specific details, or no record matched '{target}'."}
 
         # 📞 Contact Query Field Reduction
         if is_contact_query:
@@ -312,15 +317,18 @@ def generate_node(state: AgentState, config: RunnableConfig):
         # ---------- MULTI ----------
         elif len(records) > 1:
             if is_contact_query:
+                # High-priority clean format for contacts
                 table_rows = [
-                    f"{r.get('first_name')} {r.get('last_name')} | Email: {r.get('email')} | Phone: {r.get('phone_number')}"
+                    f"{r.get('first_name', '')} {r.get('last_name', '')} | {r.get('email', 'N/A')} | {r.get('phone_number', 'N/A')}"
                     for r in records
                 ]
             else:
-                table_rows = [
-                    " | ".join(f"{k}: {'' if v is None else v}" for k, v in r.items())
-                    for r in records if isinstance(r, dict)
-                ]
+                # Clean format for general queries (Position, Dept, etc.)
+                # We filter out internal IDs or empty fields to keep the table slim
+                table_rows = []
+                for r in records:
+                    row_parts = [f"{k.replace('_', ' ').title()}: {v}" for k, v in r.items() if v and k != 'id']
+                    table_rows.append(" | ".join(row_parts))
 
             combined_table = "\n".join(table_rows)
 
