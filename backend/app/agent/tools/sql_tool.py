@@ -108,24 +108,24 @@ def query_employee_db(user_id: str, role: str, target: str):
 
         # --- 9. Reports by Manager ---
         if target_upper.startswith("REPORTS_"):
-            manager_name = target_upper.replace("REPORTS_", "")
+            manager_name = target_upper.replace("REPORTS_", "").strip()
             cursor.execute(f"""
                 {base_query}
                 WHERE UPPER(s.first_name || ' ' || s.last_name) = ?
-            """, (manager_name,))
+                   OR UPPER(s.last_name) = ?
+            """, (manager_name, manager_name))
             rows = cursor.fetchall()
 
-        # --- 10. General Search ---
+        # --- 10. General Search (The Michael Fix) ---
         else:
             pattern = f"%{clean_target}%"
             cursor.execute(f"""
                 {base_query}
                 WHERE e.user_id = ?
-                   OR (e.first_name || ' ' || e.last_name) LIKE ?
+                   OR (UPPER(e.first_name) || ' ' || UPPER(e.last_name)) LIKE ?
                    OR UPPER(e.first_name) = ?
                    OR UPPER(e.department) = ?
             """, (user_id, pattern, target_upper, target_upper))
-
             rows = cursor.fetchall()
 
         if not rows:
@@ -136,12 +136,14 @@ def query_employee_db(user_id: str, role: str, target: str):
         for r in rows:
             d = dict(r)
 
+            # 🔒 Security: Strip PII if not self or admin/hr
             if not (d['user_id'] == user_id or role in ALLOWED_ROLES_FULL_ACCESS):
-                for f in ['salary', 'available_pto', 'hire_date']:
+                for f in ['salary', 'available_pto', 'hire_date', 'user_id']:
                     d.pop(f, None)
 
             results.append(d)
 
+        # Return list if multiple, single dict if one
         return {"status": "ok", "data": results if len(results) > 1 else results[0]}
 
     except Exception as e:
